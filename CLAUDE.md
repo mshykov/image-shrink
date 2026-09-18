@@ -32,7 +32,7 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 | `Sources/ImageShrink/Glass.swift` | Liquid Glass helpers with pre-26 fallbacks, window chrome, window material. |
 | `Sources/ImageShrink/Thumbnail.swift` | Row previews, decoded off the main thread. |
 | `Resources/Info.plist` | Bundle metadata, the `NSServices` entry, document types. |
-| `scripts/make-quick-action.sh` | Generates the Automator `.workflow` as plain plist XML. |
+| `scripts/make-quick-action.sh` | Generates both Automator `.workflow` bundles as plain plist XML. |
 | `tools/make-icon.swift` | Draws the icon at every size; there is no source art to keep. |
 
 ## Things that bite
@@ -58,6 +58,18 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
   `/System/Library/Services/Set Desktop Picture.workflow` is the reference: same key, same
   `public.image` value. This cost a whole round trip to find; do not "simplify" it away.
   Check with `pbs -dump_pboard | grep -A12 'Convert to JPEG.workflow'`.
+- **Quick Actions are switched on from `install.sh`**, by writing
+  `pbs NSServicesStatus` entries keyed `"<CFBundleIdentifier> - <menu title> - <NSMessage>"`
+  with `presentation_modes.ContextMenu = 1`. Without that the user has to enable them in the
+  Finder menu's Customize… sheet. `key_equivalent` in the same entry is the keyboard
+  shortcut (⌃⌘J, written `@^j`).
+- **No parentheses in a Quick Action title.** `defaults write … -dict-add` cannot parse a key
+  containing them (`Could not parse: … (Instant) …`), which is why the instant action is
+  called “Convert to JPEG Now”.
+- **The instant action runs the binary directly**, `…/Contents/MacOS/ImageShrink --cli
+  --saved --quiet`, so there is no window and no dock icon. `--saved` builds its settings by
+  constructing `AppModel`, which reads the same `UserDefaults` the window writes — keep it
+  that way rather than duplicating the key list.
 - **`log show` is unavailable in some agent shells**, which is why the app keeps its own
   trail at `~/Library/Logs/ImageShrink.log`. Use that to verify a Quick Action run.
 - GUI verification from an agent session is limited: `screencapture` needs Screen Recording

@@ -18,13 +18,17 @@ enum CLI {
       --replace          move originals to the Trash after converting
       --strip            drop EXIF/GPS metadata
       --no-skip          re-encode even if the file is already under the limit
+      --saved            start from the settings the app window last used
       --quiet            print only failures
       --selftest         drive the window's own model headlessly (used by scripts/smoke-test.sh)
       --snapshot <png>   render the window to a PNG and exit (design review)
     """
 
     static func run(arguments: [String]) -> Int32 {
-        var settings = ConversionSettings(targetBytes: 2_000_000, maxDimension: nil)
+        // --saved goes through AppModel so there is one definition of what the settings are.
+        var settings = arguments.contains("--saved")
+            ? MainActor.assumeIsolated { AppModel().settings() }
+            : ConversionSettings(targetBytes: 2_000_000, maxDimension: nil)
         var files: [URL] = []
         var quiet = false
         var selftest = false
@@ -69,6 +73,8 @@ enum CLI {
                 settings.stripMetadata = true
             case "--no-skip":
                 settings.skipSmallEnough = false
+            case "--saved":
+                break
             case "--quiet":
                 quiet = true
             case "--selftest":

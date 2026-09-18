@@ -12,21 +12,28 @@ Right-click images in Finder → **Quick Actions → Convert to JPEG** → set t
 ./scripts/install.sh
 ```
 
-That builds the app, installs it to `~/Applications/Image Shrink.app`, and installs the
-Finder Quick Action into `~/Library/Services/`. No Xcode project, no admin password.
+That builds the app, installs it to `~/Applications/Image Shrink.app`, installs both Finder
+Quick Actions into `~/Library/Services/`, switches them on and restarts Finder. No Xcode
+project, no admin password, nothing to enable by hand in Customize….
 
-If the Quick Action does not appear in the menu right away, log out and back in once — Finder
-caches its services list. You can also enable/disable it in System Settings → General →
-Login Items & Extensions → Finder Extensions (Quick Actions).
+If a menu entry still does not appear, log out and back in once — Finder caches its services
+list.
 
 The first time the app writes into Downloads, Desktop or Documents, macOS asks for permission
 to that folder. That prompt is macOS, once per folder.
 
 ## Using it
 
-**From Finder** — select any number of images, right-click, Quick Actions → Convert to JPEG.
-The window opens with the selection loaded. (There is also an entry under the **Services**
-submenu that does the same thing.)
+**From Finder** — select any number of images, right-click, and pick one of two Quick Actions:
+
+| Quick Action | What happens |
+| --- | --- |
+| **Convert to JPEG** | The window opens with the selection loaded. Pick the limit, convert. |
+| **Convert to JPEG Now** (**⌃⌘J**) | No window at all. Converts straight away with the settings the window used last, then plays a sound — a pop when it worked, a thud when something failed. |
+
+The shortcut works on a Finder selection without opening any menu. Change it in System
+Settings → Keyboard → Keyboard Shortcuts → Services, or edit `SHORTCUT` in
+`scripts/install.sh` and run it again.
 
 **By hand** — open the app from `~/Applications` and drag files onto the window, or use
 Add Files.
@@ -83,6 +90,18 @@ Files are converted in parallel, one per core.
 
 The app writes a short trail to `~/Library/Logs/ImageShrink.log` — that is the first place to
 look if the Quick Action seems to do nothing.
+
+## Making it yours
+
+- **Name.** It appears in `Resources/Info.plist` (`CFBundleName`, `CFBundleDisplayName`), in
+  `scripts/*.sh` (bundle folder and Quick Action titles) and in the window title in
+  `AppDelegate.swift`. Avoid parentheses in a Quick Action title — `defaults` cannot parse a
+  preference key containing them, which is why the instant one is “Convert to JPEG Now”.
+- **Icon.** `tools/make-icon.swift` draws it in code; change the two gradient colours or the
+  glyph and rebuild. To use artwork instead, drop a `.icns` at
+  `Resources/AppIcon.icns` and have `scripts/build.sh` copy it rather than run the generator.
+- **Bundle id** `dev.shykov.imageshrink` is referenced by both Quick Actions and by the
+  preference keys; change it in all of them together or the menu entries stop working.
 
 ## Uninstall
 

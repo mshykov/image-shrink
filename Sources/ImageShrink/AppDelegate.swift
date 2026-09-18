@@ -7,7 +7,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private var window: NSWindow?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
-        NSApp.servicesProvider = self
         buildMenu()
         showWindow()
     }
@@ -24,15 +23,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showWindow()
         return true
-    }
-
-    /// Services menu entry declared in Info.plist.
-    @objc func convertImages(_ pasteboard: NSPasteboard, userData: String?,
-                             error: AutoreleasingUnsafeMutablePointer<NSString>?) {
-        let urls = pasteboard.readObjects(forClasses: [NSURL.self], options: nil) as? [URL] ?? []
-        Log.write("service received \(urls.count) file(s)")
-        model.add(urls: urls)
-        showWindow()
     }
 
     private func showWindow() {

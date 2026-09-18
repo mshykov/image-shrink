@@ -43,23 +43,5 @@
 			<string>None</string>
 		</dict>
 	</array>
-	<key>NSServices</key>
-	<array>
-		<dict>
-			<key>NSMenuItem</key>
-			<dict>
-				<key>default</key>
-				<string>Convert to JPEG…</string>
-			</dict>
-			<key>NSMessage</key>
-			<string>convertImages</string>
-			<key>NSPortName</key>
-			<string>Image Shrink</string>
-			<key>NSSendFileTypes</key>
-			<array>
-				<string>public.image</string>
-			</array>
-		</dict>
-	</array>
 </dict>
 </plist>

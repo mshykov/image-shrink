@@ -1,13 +1,19 @@
 #!/usr/bin/env bash
-# Generates the Finder Quick Action that hands the selected images to the app.
+# Generates the two Finder Quick Actions as plain plist XML — no Automator needed.
+#   "Convert to JPEG"           opens the window with the selection
+#   "Convert to JPEG Now" converts with the last used settings, no window
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
-WORKFLOW="${1:-build/Convert to JPEG.workflow}"
-rm -rf "$WORKFLOW"
-mkdir -p "$WORKFLOW/Contents"
+OUT="${1:-build}"
 
-cat > "$WORKFLOW/Contents/Info.plist" <<'PLIST'
+# $command is inserted verbatim; the templates deliberately contain no other $.
+make_workflow() {
+    local path="$1" bundle="$2" title="$3" command="$4"
+    rm -rf "$path"
+    mkdir -p "$path/Contents"
+
+    cat > "$path/Contents/Info.plist" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -15,9 +21,9 @@ cat > "$WORKFLOW/Contents/Info.plist" <<'PLIST'
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleIdentifier</key>
-	<string>dev.shykov.imageshrink.quickaction</string>
+	<string>${bundle}</string>
 	<key>CFBundleName</key>
-	<string>Convert to JPEG</string>
+	<string>${title}</string>
 	<key>CFBundleShortVersionString</key>
 	<string>1.0</string>
 	<key>NSServices</key>
@@ -30,7 +36,7 @@ cat > "$WORKFLOW/Contents/Info.plist" <<'PLIST'
 			<key>NSMenuItem</key>
 			<dict>
 				<key>default</key>
-				<string>Convert to JPEG</string>
+				<string>${title}</string>
 			</dict>
 			<key>NSMessage</key>
 			<string>runWorkflowAsService</string>
@@ -47,7 +53,7 @@ cat > "$WORKFLOW/Contents/Info.plist" <<'PLIST'
 </plist>
 PLIST
 
-cat > "$WORKFLOW/Contents/document.wflow" <<'PLIST'
+    cat > "$path/Contents/document.wflow" <<PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -109,7 +115,7 @@ cat > "$WORKFLOW/Contents/document.wflow" <<'PLIST'
 				<key>ActionParameters</key>
 				<dict>
 					<key>COMMAND_STRING</key>
-					<string>open -b dev.shykov.imageshrink "$@"</string>
+					<string>${command}</string>
 					<key>CheckedForUserDefaultShell</key>
 					<true/>
 					<key>inputMethod</key>
@@ -259,5 +265,19 @@ cat > "$WORKFLOW/Contents/document.wflow" <<'PLIST'
 </plist>
 PLIST
 
-plutil -lint "$WORKFLOW/Contents/Info.plist" "$WORKFLOW/Contents/document.wflow"
-echo "built: $WORKFLOW"
+    plutil -lint "$path/Contents/Info.plist" "$path/Contents/document.wflow" >/dev/null
+    echo "built: $path"
+}
+
+BIN='"$HOME/Applications/Image Shrink.app/Contents/MacOS/ImageShrink"'
+
+make_workflow "$OUT/Convert to JPEG.workflow" \
+    "dev.shykov.imageshrink.quickaction" \
+    "Convert to JPEG" \
+    'open -b dev.shykov.imageshrink "$@"'
+
+# No window, no dock icon: the engine runs in place and reports with a sound.
+make_workflow "$OUT/Convert to JPEG Now.workflow" \
+    "dev.shykov.imageshrink.instant" \
+    "Convert to JPEG Now" \
+    "if ${BIN} --cli --saved --quiet \"\$@\"; then afplay /System/Library/Sounds/Pop.aiff; else afplay /System/Library/Sounds/Basso.aiff; fi"
