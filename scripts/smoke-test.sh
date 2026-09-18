@@ -19,7 +19,7 @@ size() { stat -f%z "$1"; }
 
 echo "› CLI, 2 MB limit"
 "$BIN" --cli --target-mb 2 --dest "$WORK/out" "$WORK/photo.jpg" "$WORK/photo.heic"
-for f in "$WORK/out/photo.jpg" "$WORK/out/photo-small.jpg"; do
+for f in "$WORK/out/photo.jpg" "$WORK/out/photo-2MB.jpg"; do
     [ -f "$f" ] || fail "missing $f"
     [ "$(size "$f")" -le 2000000 ] || fail "$f is over 2 MB"
 done
@@ -32,9 +32,9 @@ echo "› CLI, longest side 1920"
 "$BIN" --cli --target-mb 5 --max-dim 1920 --dest "$WORK/small" "$WORK/photo.heic" >/dev/null
 [ "$(sips -g pixelWidth "$WORK/small/photo.jpg" | tail -1 | tr -dc 0-9)" -eq 1920 ] || fail "not resized to 1920"
 
-echo "› window model, 1 MB limit"
+echo "› window model, 1 MB limit — the suffix is named after the limit"
 "$BIN" --cli --selftest --target-mb 1 --dest "$WORK/gui" "$WORK/photo.jpg" "$WORK/photo.heic"
-for f in "$WORK/gui/photo.jpg" "$WORK/gui/photo-small.jpg"; do
+for f in "$WORK/gui/photo.jpg" "$WORK/gui/photo-1MB.jpg"; do
     [ "$(size "$f")" -le 1000000 ] || fail "$f is over 1 MB"
 done
 

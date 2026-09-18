@@ -271,13 +271,15 @@ PLIST
 
 BIN='"$HOME/Applications/Image Shrink.app/Contents/MacOS/ImageShrink"'
 
-make_workflow "$OUT/Convert to JPEG.workflow" \
+make_workflow "$OUT/Convert to JPEG….workflow" \
     "dev.shykov.imageshrink.quickaction" \
-    "Convert to JPEG" \
+    "Convert to JPEG…" \
     'open -b dev.shykov.imageshrink "$@"'
 
 # No window, no dock icon: the engine runs in place and reports with a sound.
-make_workflow "$OUT/Convert to JPEG Now.workflow" \
+# The shortcut lives in the title because the Quick Actions submenu shows no key
+# equivalents of its own — this is the only place in Finder it can be seen.
+make_workflow "$OUT/Convert to JPEG Now ⌃⌘J.workflow" \
     "dev.shykov.imageshrink.instant" \
-    "Convert to JPEG Now" \
+    "Convert to JPEG Now ⌃⌘J" \
     "if ${BIN} --cli --saved --quiet \"\$@\"; then afplay /System/Library/Sounds/Pop.aiff; else afplay /System/Library/Sounds/Basso.aiff; fi"

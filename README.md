@@ -12,8 +12,9 @@ Right-click images in Finder → **Quick Actions → Convert to JPEG** → set t
 ./scripts/install.sh
 ```
 
-That builds the app, installs it to `~/Applications/Image Shrink.app`, installs both Finder
-Quick Actions into `~/Library/Services/`, switches them on and restarts Finder. No Xcode
+That builds the app, removes anything an earlier install left behind, installs it to
+`~/Applications/Image Shrink.app`, installs both Finder Quick Actions into
+`~/Library/Services/`, switches them on and restarts Finder. No Xcode
 project, no admin password, nothing to enable by hand in Customize….
 
 If a menu entry still does not appear, log out and back in once — Finder caches its services
@@ -28,8 +29,11 @@ to that folder. That prompt is macOS, once per folder.
 
 | Quick Action | What happens |
 | --- | --- |
-| **Convert to JPEG** | The window opens with the selection loaded. Pick the limit, convert. |
-| **Convert to JPEG Now** (**⌃⌘J**) | No window at all. Converts straight away with the settings the window used last, then plays a sound — a pop when it worked, a thud when something failed. |
+| **Convert to JPEG…** | The window opens with the selection loaded. Pick the limit, convert. |
+| **Convert to JPEG Now ⌃⌘J** | No window at all. Converts straight away with the settings the window used last, then plays a sound — a pop when it worked, a thud when something failed. |
+
+The shortcut is written into the menu title because the Quick Actions submenu does not show
+key equivalents by itself, and the app window repeats it along the bottom edge.
 
 The shortcut works on a Finder selection without opening any menu. Change it in System
 Settings → Keyboard → Keyboard Shortcuts → Services, or edit `SHORTCUT` in
@@ -61,7 +65,7 @@ back to a standard material, so the app still looks native there.
 | **Longest side** | Optional resolution cap, applied before compressing. `Original` keeps the full resolution. |
 | **Save to** | Same folder as the original, a `Converted` subfolder, or a folder you choose. |
 | **Move originals to Trash** | Off by default. Originals go to the Trash (recoverable), never deleted outright. |
-| **Suffix** | Used only when the output name is already taken — e.g. converting `photo.jpg` in place produces `photo-small.jpg`. |
+| **Suffix** | Used only when the output name is already taken. Left empty it is named after the limit, so converting `photo.jpg` at a 2 MB ceiling gives `photo-2MB.jpg`. Type something to override it. |
 | **Skip files already under the limit** | A JPEG that already fits is left untouched instead of being re-encoded (re-encoding always loses quality). |
 | **Keep original dates** | Copies created/modified timestamps, so photos keep sorting correctly. |
 | **Remove metadata** | Drops EXIF and GPS. Orientation is always kept, otherwise the picture would display rotated. |
@@ -108,3 +112,7 @@ look if the Quick Action seems to do nothing.
 ```bash
 ./scripts/uninstall.sh
 ```
+
+It removes the app, every Quick Action this project ever installed (whatever it was called at
+the time), their entries in the services preferences, and the saved settings. `install.sh`
+runs the same cleanup first, so reinstalling never leaves stale menu items behind.

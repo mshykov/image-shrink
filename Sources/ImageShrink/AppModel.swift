@@ -16,11 +16,12 @@ final class AppModel: ObservableObject {
     @Published var destinationMode = Defaults.destinationMode()
     @Published var customDestination: URL? = Defaults.existingURL("customDestination")
     @Published var replaceOriginals = Defaults.bool("replaceOriginals", false)
-    @Published var suffix = Defaults.string("suffix", "-small")
+    @Published var suffix = Defaults.suffix()
     @Published var stripMetadata = Defaults.bool("stripMetadata", false)
     @Published var keepDates = Defaults.bool("keepDates", true)
     @Published var skipSmallEnough = Defaults.bool("skipSmallEnough", true)
 
+    var targetBytes: Int { Int(targetMB * 1_000_000) }
     var totalBytes: Int { files.reduce(0) { $0 + Converter.byteSize(of: $1) } }
     var savedBytes: Int {
         results.reduce(0) { total, result in
@@ -46,7 +47,7 @@ final class AppModel: ObservableObject {
 
     func settings() -> ConversionSettings {
         ConversionSettings(
-            targetBytes: Int(targetMB * 1_000_000),
+            targetBytes: targetBytes,
             maxDimension: maxDimension > 0 ? maxDimension : nil,
             destinationMode: destinationMode,
             customDestination: customDestination,
@@ -143,6 +144,12 @@ enum Defaults {
     static func string(_ key: String, _ fallback: String) -> String {
         UserDefaults.standard.string(forKey: key) ?? fallback
     }
+    /// "-small" was the old fixed default; treat it as "derive it from the limit".
+    static func suffix() -> String {
+        let stored = string("suffix", "")
+        return stored == "-small" ? "" : stored
+    }
+
     static func existingURL(_ key: String) -> URL? {
         guard let path = UserDefaults.standard.string(forKey: key),
               FileManager.default.fileExists(atPath: path) else { return nil }

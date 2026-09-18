@@ -33,6 +33,7 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 | `Sources/ImageShrink/Thumbnail.swift` | Row previews, decoded off the main thread. |
 | `Resources/Info.plist` | Bundle metadata, the `NSServices` entry, document types. |
 | `scripts/make-quick-action.sh` | Generates both Automator `.workflow` bundles as plain plist XML. |
+| `scripts/lib.sh` | Removing earlier installs and pruning their services preferences. |
 | `tools/make-icon.swift` | Draws the icon at every size; there is no source art to keep. |
 
 ## Things that bite
@@ -63,6 +64,11 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
   with `presentation_modes.ContextMenu = 1`. Without that the user has to enable them in the
   Finder menu's Customize… sheet. `key_equivalent` in the same entry is the keyboard
   shortcut (⌃⌘J, written `@^j`).
+- **Renaming a Quick Action orphans its preference entry** — the key contains the menu title,
+  so the old one lingers in System Settings → Keyboard Shortcuts → Services. `install.sh`
+  prunes every `dev.shykov.imageshrink*` key through `defaults export | python3 | defaults
+  import` before writing the current ones; `plistlib.load` needs a seekable stream, so it
+  reads with `loads(stdin.buffer.read())`.
 - **No parentheses in a Quick Action title.** `defaults write … -dict-add` cannot parse a key
   containing them (`Could not parse: … (Instant) …`), which is why the instant action is
   called “Convert to JPEG Now”.
@@ -96,6 +102,13 @@ content* — never glass on glass, never behind text that has to stay legible.
   Deployment target stays 13.0 — keep the fallbacks when adding glass elsewhere.
 - The icon is a superellipse (n≈5), matching Apple's icon grid rather than a circular-corner
   rounded rect, with a single specular highlight. `tools/make-icon.swift` draws it.
+
+## Naming the outputs
+
+An empty suffix means "name it after the limit" — `photo-2MB.jpg`, `photo-500KB.jpg` — which
+is only used when the plain `.jpg` name is taken. The old fixed `-small` said nothing about
+what the file actually is, and is migrated to empty on load. A suffix typed into the field
+wins over the automatic one.
 
 ## Conventions
 

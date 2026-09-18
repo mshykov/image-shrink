@@ -142,9 +142,10 @@ struct SetupView: View {
                     Toggle("Remove metadata (EXIF, GPS)", isOn: $model.stripMetadata)
                     Toggle("Move originals to Trash after converting", isOn: $model.replaceOriginals)
                     LabeledContent("Suffix when the name is taken") {
-                        TextField("", text: $model.suffix)
+                        TextField(ConversionSettings.automaticSuffix(for: model.targetBytes),
+                                  text: $model.suffix)
                             .textFieldStyle(.roundedBorder)
-                            .frame(width: 90)
+                            .frame(width: 100)
                     }
                 }
             }
@@ -234,7 +235,8 @@ struct ActionBar: View {
     @EnvironmentObject var model: AppModel
 
     var body: some View {
-        GlassGroup(spacing: 14) {
+        VStack(spacing: 8) {
+            GlassGroup(spacing: 14) {
             HStack(spacing: 10) {
                 Button("Add Files\u{2026}") { openPanel() }
                     .glassButton()
@@ -261,9 +263,11 @@ struct ActionBar: View {
                 .keyboardShortcut(.defaultAction)
                 .disabled(model.files.isEmpty || model.isRunning)
             }
+            }
+            ShortcutHint()
         }
         .padding(.horizontal, 20)
-        .padding(.vertical, 14)
+        .padding(.vertical, 12)
     }
 
     private func openPanel() {
@@ -276,6 +280,21 @@ struct ActionBar: View {
 }
 
 // MARK: - Results
+
+/// The instant Quick Action has no interface of its own, so this is where anyone
+/// finds out it exists.
+struct ShortcutHint: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "keyboard")
+            Text("In Finder: \u{2303}\u{2318}J converts the selection with these settings, "
+                 + "without opening this window")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
 
 struct ResultsView: View {
     @EnvironmentObject var model: AppModel

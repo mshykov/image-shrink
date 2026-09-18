@@ -15,13 +15,32 @@ struct ConversionSettings: Sendable {
     var customDestination: URL?
     var subfolderName = "Converted"
     var replaceOriginals = false
-    var suffix = "-small"
+    /// Empty means derive it from the limit: "-2MB", "-500KB".
+    var suffix = ""
     var stripMetadata = false
     var keepDates = true
     var skipSmallEnough = true
 
     /// Below this the picture starts to look bad, so downscaling takes over.
     var minQuality = 0.30
+}
+
+extension ConversionSettings {
+    /// "-2MB", "-1.5MB", "-500KB" — the number in the name is the limit it was made for.
+    var resolvedSuffix: String {
+        let trimmed = suffix.trimmingCharacters(in: .whitespaces)
+        guard trimmed.isEmpty else { return trimmed }
+        return Self.automaticSuffix(for: targetBytes)
+    }
+
+    static func automaticSuffix(for bytes: Int) -> String {
+        if bytes < 1_000_000 { return "-\(max(1, bytes / 1000))KB" }
+        let megabytes = Double(bytes) / 1_000_000
+        let text = megabytes == megabytes.rounded()
+            ? String(Int(megabytes))
+            : String(format: "%.1f", megabytes)
+        return "-\(text)MB"
+    }
 }
 
 struct FileResult: Identifiable, Sendable {
@@ -243,7 +262,7 @@ enum Converter {
     static func outputURL(for source: URL, in directory: URL, settings: ConversionSettings,
                           reserver: NameReserver) -> URL {
         let base = source.deletingPathExtension().lastPathComponent
-        let suffix = settings.suffix.isEmpty ? "-small" : settings.suffix
+        let suffix = settings.resolvedSuffix
         let plain = directory.appendingPathComponent(base + ".jpg")
 
         // Converting a JPEG onto itself is only allowed when the user asked to replace originals.
