@@ -38,6 +38,11 @@ for f in "$WORK/gui/photo.jpg" "$WORK/gui/photo-1MB.jpg"; do
     [ "$(size "$f")" -le 1000000 ] || fail "$f is over 1 MB"
 done
 
+echo "› a HEIC that already fits is not allowed to grow"
+"$BIN" --cli --target-mb 8 --dest "$WORK/noinflate" "$WORK/photo.heic" >/dev/null
+[ "$(size "$WORK/noinflate/photo.jpg")" -le "$(size "$WORK/photo.heic")" ] \
+    || fail "converting a 2.5 MB HEIC with an 8 MB limit produced a bigger file"
+
 echo "› files already under the limit are left alone"
 out="$("$BIN" --cli --target-mb 5 "$WORK/tiny/photo.jpg")"
 [[ "$out" == *"already under the limit"* ]] || fail "small file was re-encoded: $out"

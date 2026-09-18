@@ -103,6 +103,17 @@ content* — never glass on glass, never behind text that has to stay legible.
 - The icon is a superellipse (n≈5), matching Apple's icon grid rather than a circular-corner
   rounded rect, with a single specular highlight. `tools/make-icon.swift` draws it.
 
+## Never inflate
+
+`encodeToTarget` aims at `min(limit, originalBytes)`, not at the limit. Without that, a
+1.2 MB HEIC converted with a 2 MB limit comes out at 2.0 MB — measured on a real iPhone
+photo, quality 84 — because JPEG needs roughly twice the bytes of HEIC for the same picture.
+The no-inflation goal has its own quality floor (`noInflationFloor`, 0.60), higher than the
+hard floor, so matching the original's size never costs more than it is worth; when 0.60 is
+not enough the hard limit takes over and the file is allowed to grow. Same photo after the
+rule: 1.2 MB at quality 61. `scripts/smoke-test.sh` asserts it with an 8 MB limit on a
+2.5 MB HEIC.
+
 ## Naming the outputs
 
 An empty suffix means "name it after the limit" — `photo-2MB.jpg`, `photo-500KB.jpg` — which

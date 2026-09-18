@@ -91,7 +91,8 @@ enum Converter {
             let output = outputURL(for: url, in: directory, settings: settings, reserver: reserver)
 
             guard let encoded = encodeToTarget(source: source, properties: properties,
-                                               fullSize: fullSize, settings: settings) else {
+                                               fullSize: fullSize, originalBytes: originalBytes,
+                                               settings: settings) else {
                 result.status = .failed("could not compress under the limit")
                 return result
             }
@@ -119,18 +120,31 @@ enum Converter {
 
     /// Drops quality first, then resolution, until the file fits the target.
     private static func encodeToTarget(source: CGImageSource, properties: [CFString: Any],
-                                       fullSize: CGSize, settings: ConversionSettings) -> Encoded? {
+                                       fullSize: CGSize, originalBytes: Int,
+                                       settings: ConversionSettings) -> Encoded? {
         let outputProperties = self.outputProperties(from: properties, strip: settings.stripMetadata)
         var maxPixel = Int(max(fullSize.width, fullSize.height).rounded())
         if let limit = settings.maxDimension { maxPixel = min(maxPixel, limit) }
         var fallback: Encoded?
+
+        // HEIC stores the same photo in about half the bytes of a JPEG, so re-encoding a
+        // small HEIC at high quality sails under the limit while ending up bigger than the
+        // file it came from. Aim for the original's size too — but with a higher quality
+        // floor, because not inflating is worth less than a picture that still looks right.
+        let noInflation = min(settings.targetBytes, originalBytes)
 
         for _ in 0..<8 {
             guard let image = makeImage(source, maxPixel: maxPixel, fullSize: fullSize) else { return fallback }
             let flat = flattenIfNeeded(image)
             let pixels = CGSize(width: flat.width, height: flat.height)
 
-            if let hit = searchQuality(flat, properties: outputProperties, settings: settings) {
+            if noInflation < settings.targetBytes,
+               let hit = searchQuality(flat, properties: outputProperties,
+                                       target: noInflation, minQuality: noInflationFloor) {
+                return Encoded(data: hit.0, quality: hit.1, pixels: pixels)
+            }
+            if let hit = searchQuality(flat, properties: outputProperties,
+                                       target: settings.targetBytes, minQuality: settings.minQuality) {
                 return Encoded(data: hit.0, quality: hit.1, pixels: pixels)
             }
             // Even the lowest quality overshoots: remember it and shrink the pixels.
@@ -147,25 +161,28 @@ enum Converter {
         return fallback
     }
 
+    /// Below this, matching the original's size costs more than the extra bytes are worth.
+    private static let noInflationFloor = 0.60
+
     /// Binary search for the highest quality that still fits.
     private static func searchQuality(_ image: CGImage, properties: [CFString: Any],
-                                      settings: ConversionSettings) -> (Data, Double)? {
+                                      target: Int, minQuality: Double) -> (Data, Double)? {
         var high = 0.92
-        if let data = encode(image, quality: high, properties: properties), data.count <= settings.targetBytes {
+        if let data = encode(image, quality: high, properties: properties), data.count <= target {
             return (data, high)
         }
-        var low = settings.minQuality
+        var low = minQuality
         guard let floorData = encode(image, quality: low, properties: properties),
-              floorData.count <= settings.targetBytes else { return nil }
+              floorData.count <= target else { return nil }
 
         var best = (floorData, low)
         for _ in 0..<6 {
             let mid = (low + high) / 2
             guard let data = encode(image, quality: mid, properties: properties) else { break }
-            if data.count <= settings.targetBytes {
+            if data.count <= target {
                 best = (data, mid)
                 low = mid
-                if Double(data.count) > 0.97 * Double(settings.targetBytes) { break }
+                if Double(data.count) > 0.97 * Double(target) { break }
             } else {
                 high = mid
             }

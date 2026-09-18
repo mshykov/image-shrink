@@ -75,11 +75,20 @@ Settings are remembered between runs, so the window opens pre-filled with what y
 ## How the size targeting works
 
 1. Decode the image once (HEIC, JPEG, PNG, anything ImageIO reads).
-2. Try quality 92. If it fits, done — no point going lower.
-3. Otherwise binary-search the quality between 30 and 92 for the largest one that fits.
-4. If quality 30 still overshoots, scale the image down by the square root of the overshoot
+2. If the original is already smaller than the limit, aim for the original's size instead —
+   see below.
+3. Try quality 92. If it fits, done — no point going lower.
+4. Otherwise binary-search the quality between 30 and 92 for the largest one that fits.
+5. If quality 30 still overshoots, scale the image down by the square root of the overshoot
    and start again. Repeat until it fits or the image gets down to 320 px.
-5. Write the JPEG, carrying EXIF/GPS/orientation across unless asked not to.
+6. Write the JPEG, carrying EXIF/GPS/orientation across unless asked not to.
+
+**It will not hand you a bigger file than you gave it.** HEIC stores the same photo in about
+half the bytes of a JPEG, so re-encoding a 1.2 MB HEIC at high quality sails under a 2 MB
+limit while ending up at 2 MB — bigger than the original, which is the opposite of the point.
+When the original already fits, the target becomes the original's own size, with a quality
+floor of 60 so the picture does not get wrecked chasing the last few kilobytes. A real 1.2 MB
+iPhone HEIC converts to a 1.2 MB JPEG at quality 61 instead of a 2 MB one at quality 84.
 
 Files are converted in parallel, one per core.
 
