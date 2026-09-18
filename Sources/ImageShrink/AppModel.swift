@@ -5,10 +5,17 @@ import UniformTypeIdentifiers
 @MainActor
 final class AppModel: ObservableObject {
 
-    @Published var files: [URL] = []
-    @Published var results: [FileResult] = []
+    /// One row per picture, carrying its own result — the grid renders straight from this,
+    /// and each card updates the moment its own file is finished rather than at the end.
+    struct Item: Identifiable, Sendable {
+        let id = UUID()
+        let url: URL
+        let bytes: Int
+        var result: FileResult?
+    }
+
+    @Published var items: [Item] = []
     @Published var isRunning = false
-    @Published var done = 0
 
     // Settings — restored from the previous run so the sheet opens pre-filled.
     @Published var targetMB: Double = Defaults.double("targetMB", 2)
@@ -22,7 +29,12 @@ final class AppModel: ObservableObject {
     @Published var skipSmallEnough = Defaults.bool("skipSmallEnough", true)
 
     var targetBytes: Int { Int(targetMB * 1_000_000) }
-    var totalBytes: Int { files.reduce(0) { $0 + Converter.byteSize(of: $1) } }
+    var totalBytes: Int { items.reduce(0) { $0 + $1.bytes } }
+    var pending: [Item] { items.filter { $0.result == nil } }
+    var results: [FileResult] { items.compactMap(\.result) }
+    var done: Int { results.count }
+    var isFinished: Bool { !items.isEmpty && pending.isEmpty }
+
     var savedBytes: Int {
         results.reduce(0) { total, result in
             guard let new = result.newBytes else { return total }
@@ -30,19 +42,30 @@ final class AppModel: ObservableObject {
         }
     }
 
+    var producedBytes: Int {
+        results.reduce(0) { $0 + ($1.newBytes ?? $1.originalBytes) }
+    }
+
+    var convertedBytes: Int {
+        results.reduce(0) { $0 + $1.originalBytes }
+    }
+
     func add(urls: [URL]) {
         let images = urls.filter(Self.isImage)
         Log.write("queued \(images.count) of \(urls.count) file(s): \(images.map(\.lastPathComponent).joined(separator: ", "))")
         guard !images.isEmpty else { return }
-        if !results.isEmpty { results = []; done = 0 }
-        let known = Set(files.map(\.standardizedFileURL))
-        files += images.filter { !known.contains($0.standardizedFileURL) }
+        let known = Set(items.map(\.url.standardizedFileURL))
+        items += images
+            .filter { !known.contains($0.standardizedFileURL) }
+            .map { Item(url: $0, bytes: Converter.byteSize(of: $0)) }
+    }
+
+    func remove(_ item: Item) {
+        items.removeAll { $0.id == item.id }
     }
 
     func clear() {
-        files = []
-        results = []
-        done = 0
+        items = []
     }
 
     func settings() -> ConversionSettings {
@@ -59,34 +82,32 @@ final class AppModel: ObservableObject {
     }
 
     func convert() {
-        guard !files.isEmpty, !isRunning else { return }
+        let queue = pending
+        guard !queue.isEmpty, !isRunning else { return }
         save()
         let settings = settings()
-        let urls = files
+        let urls = queue.map(\.url)
+        let ids = queue.map(\.id)
         Log.write("converting \(urls.count) file(s) → \(settings.targetBytes / 1000) KB limit")
         isRunning = true
-        results = []
-        done = 0
 
         Task.detached(priority: .userInitiated) { [self] in
-            let batch = Batch(count: urls.count)
             let reserver = NameReserver(sources: urls)
             DispatchQueue.concurrentPerform(iterations: urls.count) { index in
                 let result = Converter.convert(url: urls[index], settings: settings, reserver: reserver)
                 if case .failed(let reason) = result.status {
                     Log.write("failed \(urls[index].lastPathComponent): \(reason)")
                 }
-                let finished = batch.store(result, at: index)
-                Task { @MainActor in self.done = finished }
+                Task { @MainActor in self.apply(result, to: ids[index]) }
             }
-            let finished = batch.ordered()
-            Log.write("finished \(finished.count) file(s)")
-            await MainActor.run {
-                self.results = finished
-                self.done = finished.count
-                self.isRunning = false
-            }
+            Log.write("finished \(urls.count) file(s)")
+            await MainActor.run { self.isRunning = false }
         }
+    }
+
+    private func apply(_ result: FileResult, to id: Item.ID) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index].result = result
     }
 
     func save() {
@@ -105,29 +126,6 @@ final class AppModel: ObservableObject {
     static func isImage(_ url: URL) -> Bool {
         guard let type = UTType(filenameExtension: url.pathExtension.lowercased()) else { return false }
         return type.conforms(to: .image)
-    }
-}
-
-/// Collects results from the concurrent workers.
-private final class Batch: @unchecked Sendable {
-    private let lock = NSLock()
-    private var slots: [FileResult?]
-    private var finished = 0
-
-    init(count: Int) { slots = Array(repeating: nil, count: count) }
-
-    func store(_ result: FileResult, at index: Int) -> Int {
-        lock.lock()
-        defer { lock.unlock() }
-        slots[index] = result
-        finished += 1
-        return finished
-    }
-
-    func ordered() -> [FileResult] {
-        lock.lock()
-        defer { lock.unlock() }
-        return slots.compactMap { $0 }
     }
 }
 

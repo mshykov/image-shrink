@@ -53,9 +53,11 @@ Add Files.
 
 ## Design
 
-The window follows the macOS 26 Liquid Glass style: a translucent window material, a grouped
-settings form, and a floating glass action bar at the bottom. On macOS 13–15 the glass falls
-back to a standard material, so the app still looks native there.
+The window is a grid of the pictures themselves. Each card shows the file, and after a run
+its before → after sizes with a bar for how much is left; the header turns into a savings
+summary (“Saved 19,1 MB · 76% smaller”). The size presets and a settings popover sit in the
+top bar, and the actions float in a Liquid Glass bar over the photos. On macOS 13–15 the
+glass falls back to a standard material, so the app still looks native there.
 
 ## What the settings do
 

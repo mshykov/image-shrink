@@ -22,6 +22,7 @@ enum CLI {
       --quiet            print only failures
       --selftest         drive the window's own model headlessly (used by scripts/smoke-test.sh)
       --snapshot <png>   render the window to a PNG and exit (design review)
+      --snapshot-run     convert first, so the snapshot shows the finished state
     """
 
     static func run(arguments: [String]) -> Int32 {
@@ -33,6 +34,7 @@ enum CLI {
         var quiet = false
         var selftest = false
         var snapshot: String?
+        var snapshotRun = false
         var index = 0
 
         func next(_ flag: String) -> String? {
@@ -82,6 +84,8 @@ enum CLI {
             case "--snapshot":
                 guard let value = next(argument) else { return 2 }
                 snapshot = value
+            case "--snapshot-run":
+                snapshotRun = true
             default:
                 if argument.hasPrefix("-") {
                     FileHandle.standardError.write(Data("unknown option \(argument)\n".utf8))
@@ -93,7 +97,9 @@ enum CLI {
         }
 
         if let snapshot {
-            return MainActor.assumeIsolated { render(to: snapshot, files: files) }
+            return MainActor.assumeIsolated {
+                render(to: snapshot, files: files, settings: settings, convert: snapshotRun)
+            }
         }
 
         guard !files.isEmpty else {
@@ -132,11 +138,16 @@ enum CLI {
     /// Renders the real window offscreen. Glass samples what is behind it, so the capture
     /// shows layout and typography rather than the final translucency.
     @MainActor
-    private static func render(to path: String, files: [URL]) -> Int32 {
+    private static func render(to path: String, files: [URL], settings: ConversionSettings,
+                               convert: Bool) -> Int32 {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let model = AppModel()
+        model.targetMB = Double(settings.targetBytes) / 1_000_000
+        model.destinationMode = settings.destinationMode
+        model.customDestination = settings.customDestination
         model.add(urls: files)
+        if convert { model.convert() }
 
         let hosting = NSHostingView(rootView: ContentView().environmentObject(model))
         hosting.frame = NSRect(x: 0, y: 0, width: 560, height: 680)
@@ -148,13 +159,35 @@ enum CLI {
         window.contentView = hosting
         window.orderFrontRegardless()
 
-        let deadline = Date().addingTimeInterval(1.5)
+        let deadline = Date().addingTimeInterval(convert ? 60 : 1.5)
         while Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+            if convert && !model.isRunning && model.isFinished { break }
+        }
+        // Let the finished state settle before capturing.
+        let settle = Date().addingTimeInterval(1.0)
+        while Date() < settle {
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
         }
 
-        guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return 1 }
-        hosting.cacheDisplay(in: hosting.bounds, to: rep)
+        hosting.layoutSubtreeIfNeeded()
+        window.displayIfNeeded()
+
+        // cacheDisplay misses layer-composited content (scroll views, materials); rendering
+        // the layer tree catches it.
+        let scale = 2.0
+        let width = Int(hosting.bounds.width * scale), height = Int(hosting.bounds.height * scale)
+        guard let layer = hosting.layer,
+              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                                      bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return 1 }
+        context.setFillColor(CGColor(gray: 0.12, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.translateBy(x: 0, y: CGFloat(height))
+        context.scaleBy(x: scale, y: -scale)
+        layer.render(in: context)
+        guard let image = context.makeImage() else { return 1 }
+        let rep = NSBitmapImageRep(cgImage: image)
         guard let data = rep.representation(using: .png, properties: [:]) else { return 1 }
         try? data.write(to: URL(fileURLWithPath: path))
         print("snapshot: \(path)")
@@ -174,8 +207,8 @@ enum CLI {
         model.skipSmallEnough = settings.skipSmallEnough
         model.add(urls: files)
 
-        guard model.files.count == files.count else {
-            print("selftest: model accepted \(model.files.count) of \(files.count) files")
+        guard model.items.count == files.count else {
+            print("selftest: model accepted \(model.items.count) of \(files.count) files")
             return 1
         }
         model.convert()

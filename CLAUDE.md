@@ -81,27 +81,42 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 - GUI verification from an agent session is limited: `screencapture` needs Screen Recording
   permission. Use `--selftest` (drives the real `AppModel`) instead of trying to click, and
   `--snapshot out.png` to see the layout.
-- **`--snapshot` shows layout, not glass.** It captures the hosting view with
-  `cacheDisplay`, and Liquid Glass and materials sample a backdrop that does not exist
-  offscreen, so controls come out invisible. Blank *content* means something is wrong;
-  invisible *buttons* are expected.
+- **`--snapshot` shows layout, not glass**, and not scroll-view content either — see the
+  design section. It renders the hosting view's layer tree; materials sample a backdrop that
+  does not exist offscreen, so they come out flat or invisible.
 - **Do not add `.fullSizeContentView` to the window.** With it the scrolling `Form` renders
   empty (found via `--snapshot`, both with and without a clear window background). The
   transparent titlebar alone gets the seam-free look.
 
 ## Design
 
-Liquid Glass, following Apple's guidance that glass is the *control layer floating above
-content* — never glass on glass, never behind text that has to stay legible.
+The window is built around the pictures, not around a settings form — that was the first
+version's mistake, and it read as flat because the content was four sections of controls of
+equal weight with the images as a side note.
 
-- Only the floating action bar is glass (`.buttonStyle(.glass)` / `.glassProminent`, grouped
-  in a `GlassEffectContainer` so neighbouring capsules blend instead of stacking). Settings
-  stay in a standard grouped `Form`, which already carries the system material.
-- Everything glass-related lives in `Glass.swift` behind `if #available(macOS 26.0, *)`, with
-  a `.regularMaterial` fallback, so the app still builds and looks right on macOS 13–15.
-  Deployment target stays 13.0 — keep the fallbacks when adding glass elsewhere.
+- **The grid is the window.** Square thumbnail cards carry the filename, the before → after
+  sizes and a bar showing how much of the original is left. Each card updates the moment its
+  own file lands, which is why `AppModel.Item` holds its own `FileResult` instead of a
+  separate results array.
+- **Chrome top and bottom.** The top bar holds the size presets and the settings popover (or,
+  once a run finishes, the savings summary). The bottom bar is Liquid Glass floating over the
+  pictures — which is the point: glass over photos reads the way Tahoe intends, glass over a
+  form reads as nothing.
+- Everything else lives in the popover behind the slider icon. Settings are one click away
+  rather than filling the window.
+- Glass stays behind `if #available(macOS 26.0, *)` in `Glass.swift` with a `.regularMaterial`
+  fallback; deployment target stays 13.0.
 - The icon is a superellipse (n≈5), matching Apple's icon grid rather than a circular-corner
   rounded rect, with a single specular highlight. `tools/make-icon.swift` draws it.
+
+### Looking at the layout without Screen Recording
+
+`--snapshot` renders the window offscreen, but **a scroll view's content never appears**: an
+offscreen window gets no display cycle, so the cards are never drawn. A solid colour in the
+grid's place renders fine, which is how that was pinned down — blank *content* is the capture,
+not a bug. `scripts/design-probe.sh` works around it by building a copy whose grid has no
+scroll view, and renders the before and after states. Glass and materials still come out
+invisible in any capture, so judge layout and typography there, never the finish.
 
 ## Never inflate
 

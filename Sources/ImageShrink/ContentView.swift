@@ -10,13 +10,15 @@ struct ContentView: View {
         ZStack {
             WindowBackground().ignoresSafeArea()
 
-            if model.results.isEmpty {
-                SetupView()
+            if model.items.isEmpty {
+                EmptyState()
             } else {
-                ResultsView()
+                PhotoGrid()
             }
         }
-        .frame(minWidth: 540, minHeight: 600)
+        .frame(minWidth: 560, minHeight: 540)
+        .safeAreaInset(edge: .top, spacing: 0) { TopBar() }
+        .safeAreaInset(edge: .bottom, spacing: 0) { ActionBar() }
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             load(providers)
             return true
@@ -27,7 +29,6 @@ struct ContentView: View {
                     .strokeBorder(Color.accentColor, lineWidth: 3)
                     .padding(6)
                     .allowsHitTesting(false)
-                    .transition(.opacity)
             }
         }
         .animation(.easeOut(duration: 0.15), value: isTargeted)
@@ -44,47 +45,369 @@ struct ContentView: View {
     }
 }
 
-// MARK: - Setup
+// MARK: - The pictures, which are the point of the window
 
-struct SetupView: View {
+struct PhotoGrid: View {
+    @EnvironmentObject var model: AppModel
+
+    private let columns = [GridItem(.adaptive(minimum: 132, maximum: 190), spacing: 16)]
+
+    var body: some View {
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 18) {
+                ForEach(model.items) { item in
+                    PhotoCard(item: item)
+                }
+            }
+            .padding(.horizontal, 18)
+            .padding(.vertical, 16)
+            .animation(.snappy(duration: 0.25), value: model.items.count)
+        }
+        .scrollContentBackground(.hidden)
+    }
+}
+
+struct PhotoCard: View {
+    let item: AppModel.Item
+    @EnvironmentObject var model: AppModel
+    @State private var thumbnail: NSImage?
+    @State private var hovering = false
+
+    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 12, style: .continuous) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 7) {
+            ZStack(alignment: .topTrailing) {
+                preview
+                if hovering && !model.isRunning && item.result == nil {
+                    removeButton
+                }
+            }
+            caption
+        }
+        .onHover { hovering = $0 }
+        .task(id: item.url) { thumbnail = await Thumbnail.load(item.url, size: 420) }
+    }
+
+    private var preview: some View {
+        Color.clear
+            .aspectRatio(1, contentMode: .fit)
+            .overlay {
+                if let thumbnail {
+                    Image(nsImage: thumbnail)
+                        .resizable()
+                        .scaledToFill()
+                } else {
+                    Rectangle().fill(.quaternary)
+                }
+            }
+            .clipShape(shape)
+        .overlay { shape.strokeBorder(.separator, lineWidth: 0.5) }
+        .overlay(alignment: .bottomTrailing) { badge }
+        .overlay {
+            if isWorking {
+                ZStack {
+                    shape.fill(.black.opacity(0.35))
+                    ProgressView().controlSize(.small).tint(.white)
+                }
+            }
+        }
+        .shadow(color: .black.opacity(0.18), radius: 5, y: 2)
+    }
+
+    private var isWorking: Bool { model.isRunning && item.result == nil }
+
+    @ViewBuilder
+    private var badge: some View {
+        if let status = item.result?.status {
+            let icon: (String, Color) = {
+                switch status {
+                case .converted: return ("checkmark.circle.fill", .green)
+                case .skipped: return ("minus.circle.fill", .secondary)
+                case .failed: return ("exclamationmark.triangle.fill", .orange)
+                }
+            }()
+            Image(systemName: icon.0)
+                .font(.system(size: 17))
+                .foregroundStyle(.white, icon.1)
+                .padding(7)
+                .transition(.scale.combined(with: .opacity))
+        }
+    }
+
+    private var removeButton: some View {
+        Button { model.remove(item) } label: {
+            Image(systemName: "xmark.circle.fill")
+                .font(.system(size: 17))
+                .foregroundStyle(.white, .black.opacity(0.5))
+        }
+        .buttonStyle(.plain)
+        .padding(6)
+        .help("Remove from the list")
+    }
+
+    private var caption: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text(item.result?.output?.lastPathComponent ?? item.url.lastPathComponent)
+                .font(.callout)
+                .lineLimit(1)
+                .truncationMode(.middle)
+
+            HStack(spacing: 5) {
+                Text(Format.bytes(item.bytes))
+                    .foregroundStyle(.secondary)
+                if let new = item.result?.newBytes, new != item.bytes {
+                    Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
+                    Text(Format.bytes(new))
+                        .foregroundStyle(new < item.bytes ? Color.green : Color.orange)
+                }
+            }
+            .font(.caption)
+            .monospacedDigit()
+
+            switch item.result?.status {
+            case .converted:
+                if let new = item.result?.newBytes, item.bytes > 0 {
+                    SizeBar(fraction: min(1, Double(new) / Double(item.bytes)))
+                }
+            case .skipped(let reason):
+                Text(reason).font(.caption).foregroundStyle(.secondary).lineLimit(1)
+            case .failed(let reason):
+                Text(reason).font(.caption).foregroundStyle(.orange).lineLimit(1)
+            case nil:
+                EmptyView()
+            }
+        }
+    }
+}
+
+/// How much of the original is left, drawn rather than spelled out.
+struct SizeBar: View {
+    let fraction: Double
+
+    var body: some View {
+        GeometryReader { geometry in
+            ZStack(alignment: .leading) {
+                Capsule().fill(.quaternary)
+                Capsule()
+                    .fill(fraction <= 1 ? Color.green : Color.orange)
+                    .frame(width: max(3, geometry.size.width * fraction))
+            }
+        }
+        .frame(height: 3)
+    }
+}
+
+struct EmptyState: View {
     @EnvironmentObject var model: AppModel
 
     var body: some View {
-        Form {
-            Section {
-                if model.files.isEmpty {
-                    DropZone()
-                } else {
-                    ForEach(model.files.prefix(7), id: \.self) { url in
-                        FileRow(url: url)
-                    }
-                    if model.files.count > 7 {
-                        Text("and \(model.files.count - 7) more")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } header: {
-                HStack {
-                    Text(model.files.isEmpty ? "Images" : "^[\(model.files.count) image](inflect: true)")
-                    Spacer()
-                    if !model.files.isEmpty {
-                        Text("\(Format.bytes(model.totalBytes)) → JPEG")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
+        VStack(spacing: 12) {
+            Image(systemName: "photo.stack")
+                .font(.system(size: 44, weight: .thin))
+                .foregroundStyle(.tertiary)
+            Text("Drop images here")
+                .font(.title3.weight(.medium))
+            Text("HEIC, JPEG or PNG — they come out as JPEG under the limit you pick")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+        }
+        .frame(maxWidth: 380)
+        .padding(40)
+    }
+}
 
-            Section("Maximum file size") {
+// MARK: - Bars
+
+struct TopBar: View {
+    @EnvironmentObject var model: AppModel
+    @State private var showSettings = false
+
+    var body: some View {
+        HStack(spacing: 12) {
+            if model.isFinished {
+                summary
+            } else {
                 Picker("", selection: presetBinding) {
                     Text("500 KB").tag(0.5)
                     Text("1 MB").tag(1.0)
                     Text("2 MB").tag(2.0)
                     Text("5 MB").tag(5.0)
-                    Text("Custom").tag(-1.0)
+                    Text(isPreset ? "Custom"
+                         : model.targetMB.formatted(.number.precision(.fractionLength(0...2))) + " MB")
+                        .tag(-1.0)
                 }
                 .pickerStyle(.segmented)
                 .labelsHidden()
+                .fixedSize()
+                .disabled(model.isRunning)
 
+                Text(settingsLine)
+                    .font(.callout)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+
+            Spacer(minLength: 8)
+
+            Button {
+                showSettings = true
+            } label: {
+                Image(systemName: "slider.horizontal.3")
+            }
+            .help("All settings")
+            .popover(isPresented: $showSettings, arrowEdge: .bottom) {
+                SettingsPopover().environmentObject(model)
+            }
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 10)
+        .background(.ultraThinMaterial)
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    private var summary: some View {
+        HStack(spacing: 10) {
+            VStack(alignment: .leading, spacing: 1) {
+                Text(model.savedBytes > 0 ? "Saved \(Format.bytes(model.savedBytes))" : "Done")
+                    .font(.headline)
+                Text("\(Format.bytes(model.convertedBytes)) → \(Format.bytes(model.producedBytes))"
+                     + (percent > 0 ? " · \(percent)% smaller" : ""))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+            if failures > 0 {
+                Label("\(failures) failed", systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+            }
+        }
+    }
+
+    private var percent: Int {
+        guard model.convertedBytes > 0 else { return 0 }
+        return Int((Double(model.savedBytes) / Double(model.convertedBytes) * 100).rounded())
+    }
+
+    private var failures: Int { model.results.filter(\.isFailure).count }
+
+    private var settingsLine: String {
+        var parts: [String] = []
+        if model.maxDimension > 0 { parts.append("\(model.maxDimension) px") }
+        switch model.destinationMode {
+        case .sameFolder: break
+        case .subfolder: parts.append("Converted/")
+        case .custom: parts.append(model.customDestination?.lastPathComponent ?? "chosen folder")
+        }
+        if model.replaceOriginals { parts.append("originals to Trash") }
+        if model.stripMetadata { parts.append("no metadata") }
+        return parts.joined(separator: " · ")
+    }
+
+    private var isPreset: Bool {
+        [0.5, 1.0, 2.0, 5.0].contains { abs($0 - model.targetMB) < 0.001 }
+    }
+
+    /// −1 means the number in the field is not one of the presets.
+    private var presetBinding: Binding<Double> {
+        Binding {
+            [0.5, 1.0, 2.0, 5.0].first { abs($0 - model.targetMB) < 0.001 } ?? -1
+        } set: { value in
+            if value > 0 { model.targetMB = value }
+        }
+    }
+}
+
+struct ActionBar: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        VStack(spacing: 8) {
+            GlassGroup(spacing: 14) {
+                HStack(spacing: 10) {
+                    Button("Add Files\u{2026}") { openPanel() }
+                        .glassButton()
+                    if !model.items.isEmpty && !model.isRunning {
+                        Button(model.isFinished ? "Clear" : "Remove All") { model.clear() }
+                            .glassButton()
+                    }
+
+                    Spacer(minLength: 12)
+
+                    if model.isRunning {
+                        ProgressView(value: Double(model.done), total: Double(max(1, model.items.count)))
+                            .progressViewStyle(.linear)
+                            .frame(width: 110)
+                        Text("\(model.done)/\(model.items.count)")
+                            .font(.callout)
+                            .monospacedDigit()
+                            .foregroundStyle(.secondary)
+                    }
+
+                    if model.isFinished {
+                        Button("Show in Finder") { reveal() }
+                            .glassButton(prominent: true)
+                            .keyboardShortcut(.defaultAction)
+                            .disabled(model.results.allSatisfy { $0.output == nil })
+                    } else {
+                        Button(convertTitle) { model.convert() }
+                            .glassButton(prominent: true)
+                            .keyboardShortcut(.defaultAction)
+                            .disabled(model.pending.isEmpty || model.isRunning)
+                    }
+                }
+            }
+            ShortcutHint()
+        }
+        .padding(.horizontal, 18)
+        .padding(.vertical, 12)
+    }
+
+    private var convertTitle: String {
+        let count = model.pending.count
+        return count > 1 ? "Convert \(count) Images" : "Convert"
+    }
+
+    private func openPanel() {
+        let panel = NSOpenPanel()
+        panel.allowsMultipleSelection = true
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [.image]
+        if panel.runModal() == .OK { model.add(urls: panel.urls) }
+    }
+
+    private func reveal() {
+        let urls = model.results.compactMap(\.output)
+        guard !urls.isEmpty else { return }
+        NSWorkspace.shared.activateFileViewerSelecting(urls)
+    }
+}
+
+/// The instant Quick Action has no interface of its own, so this is where anyone
+/// finds out it exists.
+struct ShortcutHint: View {
+    var body: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "keyboard")
+            Text("In Finder: \u{2303}\u{2318}J converts the selection with these settings, "
+                 + "without opening this window")
+        }
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .frame(maxWidth: .infinity, alignment: .leading)
+    }
+}
+
+// MARK: - Settings, one click away rather than filling the window
+
+struct SettingsPopover: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        Form {
+            Section("Maximum file size") {
                 LabeledContent("Limit") {
                     HStack(spacing: 6) {
                         TextField("", value: $model.targetMB,
@@ -113,7 +436,7 @@ struct SetupView: View {
             Section("Save to") {
                 Picker("", selection: $model.destinationMode) {
                     Text("Same folder").tag(DestinationMode.sameFolder)
-                    Text("\u{201C}Converted\u{201D} subfolder").tag(DestinationMode.subfolder)
+                    Text("\u{201C}Converted\u{201D}").tag(DestinationMode.subfolder)
                     Text("Chosen folder").tag(DestinationMode.custom)
                 }
                 .pickerStyle(.segmented)
@@ -136,31 +459,19 @@ struct SetupView: View {
             }
 
             Section {
-                DisclosureGroup("More options") {
-                    Toggle("Skip files already under the limit", isOn: $model.skipSmallEnough)
-                    Toggle("Keep original date created and modified", isOn: $model.keepDates)
-                    Toggle("Remove metadata (EXIF, GPS)", isOn: $model.stripMetadata)
-                    Toggle("Move originals to Trash after converting", isOn: $model.replaceOriginals)
-                    LabeledContent("Suffix (empty: the file\u{2019}s own size)") {
-                        TextField("automatic", text: $model.suffix)
-                            .textFieldStyle(.roundedBorder)
-                            .frame(width: 100)
-                    }
+                Toggle("Skip files already under the limit", isOn: $model.skipSmallEnough)
+                Toggle("Keep original date created and modified", isOn: $model.keepDates)
+                Toggle("Remove metadata (EXIF, GPS)", isOn: $model.stripMetadata)
+                Toggle("Move originals to Trash after converting", isOn: $model.replaceOriginals)
+                LabeledContent("Suffix (empty: the file\u{2019}s own size)") {
+                    TextField("automatic", text: $model.suffix)
+                        .textFieldStyle(.roundedBorder)
+                        .frame(width: 100)
                 }
             }
         }
         .formStyle(.grouped)
-        .clearScrollBackground()
-        .safeAreaInset(edge: .bottom) { ActionBar() }
-    }
-
-    /// −1 means the number in the field is not one of the presets.
-    private var presetBinding: Binding<Double> {
-        Binding {
-            [0.5, 1.0, 2.0, 5.0].first { abs($0 - model.targetMB) < 0.001 } ?? -1
-        } set: { value in
-            if value > 0 { model.targetMB = value }
-        }
+        .frame(width: 420, height: 430)
     }
 
     private func chooseFolder() {
@@ -170,225 +481,5 @@ struct SetupView: View {
         panel.canCreateDirectories = true
         panel.prompt = "Choose"
         if panel.runModal() == .OK { model.customDestination = panel.url }
-    }
-}
-
-struct DropZone: View {
-    var body: some View {
-        RoundedRectangle(cornerRadius: 14)
-            .strokeBorder(style: StrokeStyle(lineWidth: 1.5, dash: [7, 5]))
-            .foregroundStyle(.tertiary)
-            .frame(height: 96)
-            .overlay {
-                VStack(spacing: 6) {
-                    Image(systemName: "photo.on.rectangle.angled")
-                        .font(.system(size: 22, weight: .light))
-                        .foregroundStyle(.secondary)
-                    Text("Drop HEIC, JPEG or PNG files here")
-                        .foregroundStyle(.secondary)
-                }
-            }
-            .padding(.vertical, 4)
-    }
-}
-
-struct FileRow: View {
-    let url: URL
-    @State private var thumbnail: NSImage?
-
-    var body: some View {
-        HStack(spacing: 12) {
-            preview
-            Text(url.lastPathComponent)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Spacer(minLength: 12)
-            Text(Format.bytes(Converter.byteSize(of: url)))
-                .foregroundStyle(.secondary)
-                .monospacedDigit()
-        }
-        .padding(.vertical, 2)
-        .task(id: url) { thumbnail = await Thumbnail.load(url) }
-    }
-
-    @ViewBuilder
-    private var preview: some View {
-        let shape = RoundedRectangle(cornerRadius: 5, style: .continuous)
-        Group {
-            if let thumbnail {
-                Image(nsImage: thumbnail).resizable().scaledToFill()
-            } else {
-                Rectangle().fill(.quaternary)
-                    .overlay { Image(systemName: "photo").font(.caption).foregroundStyle(.secondary) }
-            }
-        }
-        .frame(width: 34, height: 26)
-        .clipShape(shape)
-        .overlay { shape.strokeBorder(.separator, lineWidth: 0.5) }
-    }
-}
-
-// MARK: - Action bars
-
-struct ActionBar: View {
-    @EnvironmentObject var model: AppModel
-
-    var body: some View {
-        VStack(spacing: 8) {
-            GlassGroup(spacing: 14) {
-            HStack(spacing: 10) {
-                Button("Add Files\u{2026}") { openPanel() }
-                    .glassButton()
-                if !model.files.isEmpty && !model.isRunning {
-                    Button("Clear") { model.clear() }
-                        .glassButton()
-                }
-
-                Spacer(minLength: 12)
-
-                if model.isRunning {
-                    ProgressView(value: Double(model.done), total: Double(max(1, model.files.count)))
-                        .progressViewStyle(.linear)
-                        .frame(width: 110)
-                    Text("\(model.done)/\(model.files.count)")
-                        .monospacedDigit()
-                        .foregroundStyle(.secondary)
-                }
-
-                Button(model.files.count > 1 ? "Convert \(model.files.count) Images" : "Convert") {
-                    model.convert()
-                }
-                .glassButton(prominent: true)
-                .keyboardShortcut(.defaultAction)
-                .disabled(model.files.isEmpty || model.isRunning)
-            }
-            }
-            ShortcutHint()
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-    }
-
-    private func openPanel() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.image]
-        if panel.runModal() == .OK { model.add(urls: panel.urls) }
-    }
-}
-
-// MARK: - Results
-
-/// The instant Quick Action has no interface of its own, so this is where anyone
-/// finds out it exists.
-struct ShortcutHint: View {
-    var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "keyboard")
-            Text("In Finder: \u{2303}\u{2318}J converts the selection with these settings, "
-                 + "without opening this window")
-        }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
-    }
-}
-
-struct ResultsView: View {
-    @EnvironmentObject var model: AppModel
-
-    var body: some View {
-        Form {
-            Section {
-                ForEach(model.results) { result in
-                    ResultRow(result: result)
-                }
-            } header: {
-                HStack {
-                    Text("Done")
-                    Spacer()
-                    if model.savedBytes > 0 {
-                        Text("saved \(Format.bytes(model.savedBytes))")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            }
-        }
-        .formStyle(.grouped)
-        .clearScrollBackground()
-        .safeAreaInset(edge: .bottom) {
-            GlassGroup(spacing: 14) {
-                HStack(spacing: 10) {
-                    Button("Show in Finder") { reveal() }
-                        .glassButton()
-                        .disabled(model.results.allSatisfy { $0.output == nil })
-                    Spacer(minLength: 12)
-                    Button("Done") { model.clear() }
-                        .glassButton(prominent: true)
-                        .keyboardShortcut(.defaultAction)
-                }
-            }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 14)
-        }
-    }
-
-    private func reveal() {
-        let urls = model.results.compactMap(\.output)
-        guard !urls.isEmpty else { return }
-        NSWorkspace.shared.activateFileViewerSelecting(urls)
-    }
-}
-
-struct ResultRow: View {
-    let result: FileResult
-
-    var body: some View {
-        HStack(alignment: .top, spacing: 10) {
-            Image(systemName: icon)
-                .foregroundStyle(tint)
-                .frame(width: 16)
-            VStack(alignment: .leading, spacing: 2) {
-                Text(result.output?.lastPathComponent ?? result.source.lastPathComponent)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                Text(detail)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer(minLength: 0)
-        }
-        .padding(.vertical, 2)
-    }
-
-    private var icon: String {
-        switch result.status {
-        case .converted: return "checkmark.circle.fill"
-        case .skipped: return "minus.circle.fill"
-        case .failed: return "exclamationmark.triangle.fill"
-        }
-    }
-
-    private var tint: Color {
-        switch result.status {
-        case .converted: return .green
-        case .skipped: return .secondary
-        case .failed: return .orange
-        }
-    }
-
-    private var detail: String {
-        switch result.status {
-        case .converted:
-            var parts = ["\(Format.bytes(result.originalBytes)) → \(Format.bytes(result.newBytes ?? 0))"]
-            if let pixels = result.pixelSize { parts.append(Format.pixels(pixels)) }
-            if let quality = result.quality { parts.append("quality \(Int(quality * 100))") }
-            return parts.joined(separator: " · ")
-        case .skipped(let reason):
-            return "\(Format.bytes(result.originalBytes)) · \(reason)"
-        case .failed(let reason):
-            return reason
-        }
     }
 }
