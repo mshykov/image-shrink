@@ -12,6 +12,14 @@ cat > "$WORKFLOW/Contents/Info.plist" <<'PLIST'
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+	<key>CFBundleIdentifier</key>
+	<string>dev.shykov.imageshrink.quickaction</string>
+	<key>CFBundleName</key>
+	<string>Convert to JPEG</string>
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
 	<key>NSServices</key>
 	<array>
 		<dict>
@@ -26,6 +34,13 @@ cat > "$WORKFLOW/Contents/Info.plist" <<'PLIST'
 			</dict>
 			<key>NSMessage</key>
 			<string>runWorkflowAsService</string>
+			<!-- Without this the menu item never appears: it is what Finder matches
+			     the selection against. Apple's own Set Desktop Picture.workflow
+			     declares exactly the same key. -->
+			<key>NSSendFileTypes</key>
+			<array>
+				<string>public.image</string>
+			</array>
 		</dict>
 	</array>
 </dict>
@@ -221,19 +236,6 @@ cat > "$WORKFLOW/Contents/document.wflow" <<'PLIST'
 	<dict/>
 	<key>workflowMetaData</key>
 	<dict>
-		<key>applicationBundleID</key>
-		<string>com.apple.finder</string>
-		<key>applicationBundleIDsByPath</key>
-		<dict>
-			<key>/System/Library/CoreServices/Finder.app</key>
-			<string>com.apple.finder</string>
-		</dict>
-		<key>applicationPath</key>
-		<string>/System/Library/CoreServices/Finder.app</string>
-		<key>applicationPaths</key>
-		<array>
-			<string>/System/Library/CoreServices/Finder.app</string>
-		</array>
 		<key>inputTypeIdentifier</key>
 		<string>com.apple.Automator.fileSystemObject.image</string>
 		<key>outputTypeIdentifier</key>
@@ -242,10 +244,6 @@ cat > "$WORKFLOW/Contents/document.wflow" <<'PLIST'
 		<integer>15</integer>
 		<key>processesInput</key>
 		<false/>
-		<key>serviceApplicationBundleID</key>
-		<string>com.apple.finder</string>
-		<key>serviceApplicationPath</key>
-		<string>/System/Library/CoreServices/Finder.app</string>
 		<key>serviceInputTypeIdentifier</key>
 		<string>com.apple.Automator.fileSystemObject.image</string>
 		<key>serviceOutputTypeIdentifier</key>

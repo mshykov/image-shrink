@@ -40,6 +40,12 @@ Add Files.
 `--help` lists the options: `--target-mb`, `--max-dim`, `--dest`, `--subfolder`, `--suffix`,
 `--replace`, `--strip`, `--no-skip`, `--quiet`.
 
+## Design
+
+The window follows the macOS 26 Liquid Glass style: a translucent window material, a grouped
+settings form, and a floating glass action bar at the bottom. On macOS 13–15 the glass falls
+back to a standard material, so the app still looks native there.
+
 ## What the settings do
 
 | Setting | Meaning |

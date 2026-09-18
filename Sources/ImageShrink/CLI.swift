@@ -1,4 +1,6 @@
+import AppKit
 import Foundation
+import SwiftUI
 
 /// Headless mode — the same engine the window uses, for scripts and tests.
 enum CLI {
@@ -18,6 +20,7 @@ enum CLI {
       --no-skip          re-encode even if the file is already under the limit
       --quiet            print only failures
       --selftest         drive the window's own model headlessly (used by scripts/smoke-test.sh)
+      --snapshot <png>   render the window to a PNG and exit (design review)
     """
 
     static func run(arguments: [String]) -> Int32 {
@@ -25,6 +28,7 @@ enum CLI {
         var files: [URL] = []
         var quiet = false
         var selftest = false
+        var snapshot: String?
         var index = 0
 
         func next(_ flag: String) -> String? {
@@ -69,6 +73,9 @@ enum CLI {
                 quiet = true
             case "--selftest":
                 selftest = true
+            case "--snapshot":
+                guard let value = next(argument) else { return 2 }
+                snapshot = value
             default:
                 if argument.hasPrefix("-") {
                     FileHandle.standardError.write(Data("unknown option \(argument)\n".utf8))
@@ -77,6 +84,10 @@ enum CLI {
                 files.append(URL(fileURLWithPath: (argument as NSString).expandingTildeInPath))
             }
             index += 1
+        }
+
+        if let snapshot {
+            return MainActor.assumeIsolated { render(to: snapshot, files: files) }
         }
 
         guard !files.isEmpty else {
@@ -110,6 +121,38 @@ enum CLI {
             }
         }
         return failures > 0 ? 1 : 0
+    }
+
+    /// Renders the real window offscreen. Glass samples what is behind it, so the capture
+    /// shows layout and typography rather than the final translucency.
+    @MainActor
+    private static func render(to path: String, files: [URL]) -> Int32 {
+        _ = NSApplication.shared
+        NSApp.setActivationPolicy(.accessory)
+        let model = AppModel()
+        model.add(urls: files)
+
+        let hosting = NSHostingView(rootView: ContentView().environmentObject(model))
+        hosting.frame = NSRect(x: 0, y: 0, width: 560, height: 680)
+        let window = NSWindow(contentRect: hosting.frame,
+                              styleMask: [.titled, .closable, .resizable],
+                              backing: .buffered, defer: false)
+        window.title = "Image Shrink"
+        window.applyGlassChrome()
+        window.contentView = hosting
+        window.orderFrontRegardless()
+
+        let deadline = Date().addingTimeInterval(1.5)
+        while Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        }
+
+        guard let rep = hosting.bitmapImageRepForCachingDisplay(in: hosting.bounds) else { return 1 }
+        hosting.cacheDisplay(in: hosting.bounds, to: rep)
+        guard let data = rep.representation(using: .png, properties: [:]) else { return 1 }
+        try? data.write(to: URL(fileURLWithPath: path))
+        print("snapshot: \(path)")
+        return 0
     }
 
     /// Runs the exact path the Convert button takes, without a window.

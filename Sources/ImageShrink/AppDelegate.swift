@@ -43,6 +43,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 styleMask: [.titled, .closable, .miniaturizable, .resizable],
                 backing: .buffered, defer: false)
             window.title = "Image Shrink"
+            window.applyGlassChrome()
             window.contentView = hosting
             window.isReleasedWhenClosed = false
             window.center()

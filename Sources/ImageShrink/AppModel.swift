@@ -13,9 +13,8 @@ final class AppModel: ObservableObject {
     // Settings — restored from the previous run so the sheet opens pre-filled.
     @Published var targetMB: Double = Defaults.double("targetMB", 2)
     @Published var maxDimension: Int = Defaults.int("maxDimension", 0)
-    @Published var destinationMode = DestinationMode(
-        rawValue: Defaults.string("destinationMode", DestinationMode.sameFolder.rawValue)) ?? .sameFolder
-    @Published var customDestination: URL? = Defaults.url("customDestination")
+    @Published var destinationMode = Defaults.destinationMode()
+    @Published var customDestination: URL? = Defaults.existingURL("customDestination")
     @Published var replaceOriginals = Defaults.bool("replaceOriginals", false)
     @Published var suffix = Defaults.string("suffix", "-small")
     @Published var stripMetadata = Defaults.bool("stripMetadata", false)
@@ -144,8 +143,17 @@ enum Defaults {
     static func string(_ key: String, _ fallback: String) -> String {
         UserDefaults.standard.string(forKey: key) ?? fallback
     }
-    static func url(_ key: String) -> URL? {
-        UserDefaults.standard.string(forKey: key).map { URL(fileURLWithPath: $0) }
+    static func existingURL(_ key: String) -> URL? {
+        guard let path = UserDefaults.standard.string(forKey: key),
+              FileManager.default.fileExists(atPath: path) else { return nil }
+        return URL(fileURLWithPath: path)
+    }
+
+    /// Falls back to the same folder when the folder that was chosen last time is gone.
+    static func destinationMode() -> DestinationMode {
+        let mode = DestinationMode(rawValue: string("destinationMode", DestinationMode.sameFolder.rawValue))
+        if mode == .custom && existingURL("customDestination") == nil { return .sameFolder }
+        return mode ?? .sameFolder
     }
 }
 
