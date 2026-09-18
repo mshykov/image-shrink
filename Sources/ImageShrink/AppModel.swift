@@ -70,7 +70,7 @@ final class AppModel: ObservableObject {
 
         Task.detached(priority: .userInitiated) { [self] in
             let batch = Batch(count: urls.count)
-            let reserver = NameReserver()
+            let reserver = NameReserver(sources: urls)
             DispatchQueue.concurrentPerform(iterations: urls.count) { index in
                 let result = Converter.convert(url: urls[index], settings: settings, reserver: reserver)
                 if case .failed(let reason) = result.status {

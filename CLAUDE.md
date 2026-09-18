@@ -116,10 +116,20 @@ rule: 1.2 MB at quality 61. `scripts/smoke-test.sh` asserts it with an 8 MB limi
 
 ## Naming the outputs
 
-An empty suffix means "name it after the limit" — `photo-2MB.jpg`, `photo-500KB.jpg` — which
-is only used when the plain `.jpg` name is taken. The old fixed `-small` said nothing about
-what the file actually is, and is migrated to empty on load. A suffix typed into the field
-wins over the automatic one.
+Every output is `<original name><suffix>.jpg`, where an empty suffix setting means the
+finished file's own size rounded up a fixed ladder — 100KB, 500KB, 1MB, 2MB, 3MB, 5MB, 10MB,
+then whole MB above that. The size is of the *result*, so the name can only be chosen after
+encoding: `outputURL` is called with `encoded.data.count`, not before the work as it used to
+be. A suffix typed into the field wins over the automatic one.
+
+Two earlier attempts were wrong and should not come back: `-small` (says nothing about a 2 MB
+file) and naming after the *limit* (a 1.2 MB result labelled `-2MB` because the limit was
+2 MB).
+
+When two sources in one batch share a base name — `IMG_7323.jpg` and `IMG_7323.HEIC` — both
+get their source format in the name. `NameReserver` is constructed with the whole source
+list so it knows this before any worker starts; otherwise whichever finished first kept the
+plain name and the names changed from run to run.
 
 ## Conventions
 

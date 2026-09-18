@@ -65,7 +65,7 @@ back to a standard material, so the app still looks native there.
 | **Longest side** | Optional resolution cap, applied before compressing. `Original` keeps the full resolution. |
 | **Save to** | Same folder as the original, a `Converted` subfolder, or a folder you choose. |
 | **Move originals to Trash** | Off by default. Originals go to the Trash (recoverable), never deleted outright. |
-| **Suffix** | Used only when the output name is already taken. Left empty it is named after the limit, so converting `photo.jpg` at a 2 MB ceiling gives `photo-2MB.jpg`. Type something to override it. |
+| **Suffix** | Left empty, every output is named after its own finished size, rounded up to 100KB / 500KB / 1MB / 2MB / 3MB / 5MB / 10MB — a 1.7 MB result becomes `photo-2MB.jpg`. Type something to use that instead. |
 | **Skip files already under the limit** | A JPEG that already fits is left untouched instead of being re-encoded (re-encoding always loses quality). |
 | **Keep original dates** | Copies created/modified timestamps, so photos keep sorting correctly. |
 | **Remove metadata** | Drops EXIF and GPS. Orientation is always kept, otherwise the picture would display rotated. |
@@ -103,6 +103,23 @@ Files are converted in parallel, one per core.
 
 The app writes a short trail to `~/Library/Logs/ImageShrink.log` — that is the first place to
 look if the Quick Action seems to do nothing.
+
+## What the files are called
+
+Converted files land next to the originals, keeping the original name plus the size they
+ended up at:
+
+```
+IMG_73221.jpg  2,4 MB  →  IMG_73221-2MB.jpg   2,0 MB
+IMG_7323.jpg   2,5 MB  →  IMG_7323-jpg-2MB.jpg   1,7 MB
+IMG_7323.HEIC  1,2 MB  →  IMG_7323-heic-2MB.jpg  1,2 MB
+IMG_7322.HEIC  1,2 MB  →  IMG_7322-2MB.jpg    1,2 MB
+```
+
+`IMG_7323.jpg` and `IMG_7323.HEIC` share a base name, so both carry their source format —
+decided from the whole batch before anything is written, so the same selection always
+produces the same names. Originals are never overwritten unless you ask for it in
+**Move originals to Trash**, which keeps the plain name instead.
 
 ## Making it yours
 

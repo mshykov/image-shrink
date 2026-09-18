@@ -141,9 +141,8 @@ struct SetupView: View {
                     Toggle("Keep original date created and modified", isOn: $model.keepDates)
                     Toggle("Remove metadata (EXIF, GPS)", isOn: $model.stripMetadata)
                     Toggle("Move originals to Trash after converting", isOn: $model.replaceOriginals)
-                    LabeledContent("Suffix when the name is taken") {
-                        TextField(ConversionSettings.automaticSuffix(for: model.targetBytes),
-                                  text: $model.suffix)
+                    LabeledContent("Suffix (empty: the file\u{2019}s own size)") {
+                        TextField("automatic", text: $model.suffix)
                             .textFieldStyle(.roundedBorder)
                             .frame(width: 100)
                     }

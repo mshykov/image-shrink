@@ -26,20 +26,20 @@ struct ConversionSettings: Sendable {
 }
 
 extension ConversionSettings {
-    /// "-2MB", "-1.5MB", "-500KB" — the number in the name is the limit it was made for.
-    var resolvedSuffix: String {
-        let trimmed = suffix.trimmingCharacters(in: .whitespaces)
-        guard trimmed.isEmpty else { return trimmed }
-        return Self.automaticSuffix(for: targetBytes)
+    /// The suffix describes the finished file, not the setting that produced it.
+    func resolvedSuffix(for bytes: Int) -> String {
+        let typed = suffix.trimmingCharacters(in: .whitespaces)
+        return typed.isEmpty ? Self.sizeSuffix(for: bytes) : typed
     }
 
-    static func automaticSuffix(for bytes: Int) -> String {
-        if bytes < 1_000_000 { return "-\(max(1, bytes / 1000))KB" }
-        let megabytes = Double(bytes) / 1_000_000
-        let text = megabytes == megabytes.rounded()
-            ? String(Int(megabytes))
-            : String(format: "%.1f", megabytes)
-        return "-\(text)MB"
+    /// Actual size, rounded up to the next rung: 100KB, 500KB, 1MB, 2MB, 3MB, 5MB, 10MB.
+    static func sizeSuffix(for bytes: Int) -> String {
+        let ladder: [(limit: Int, name: String)] = [
+            (100_000, "-100KB"), (500_000, "-500KB"), (1_000_000, "-1MB"),
+            (2_000_000, "-2MB"), (3_000_000, "-3MB"), (5_000_000, "-5MB"), (10_000_000, "-10MB"),
+        ]
+        if let rung = ladder.first(where: { bytes <= $0.limit }) { return rung.name }
+        return "-\(Int((Double(bytes) / 1_000_000).rounded(.up)))MB"
     }
 }
 
@@ -88,7 +88,6 @@ enum Converter {
 
         do {
             let directory = try destinationDirectory(for: url, settings: settings)
-            let output = outputURL(for: url, in: directory, settings: settings, reserver: reserver)
 
             guard let encoded = encodeToTarget(source: source, properties: properties,
                                                fullSize: fullSize, originalBytes: originalBytes,
@@ -96,6 +95,9 @@ enum Converter {
                 result.status = .failed("could not compress under the limit")
                 return result
             }
+
+            let output = outputURL(for: url, in: directory, bytes: encoded.data.count,
+                                   settings: settings, reserver: reserver)
 
             try write(encoded.data, to: output, replacing: url, settings: settings)
 
@@ -276,25 +278,37 @@ enum Converter {
         }
     }
 
-    static func outputURL(for source: URL, in directory: URL, settings: ConversionSettings,
-                          reserver: NameReserver) -> URL {
+    static func outputURL(for source: URL, in directory: URL, bytes: Int,
+                          settings: ConversionSettings, reserver: NameReserver) -> URL {
         let base = source.deletingPathExtension().lastPathComponent
-        let suffix = settings.resolvedSuffix
-        let plain = directory.appendingPathComponent(base + ".jpg")
 
-        // Converting a JPEG onto itself is only allowed when the user asked to replace originals.
-        let isSource = plain.standardizedFileURL == source.standardizedFileURL
-        if isSource && settings.replaceOriginals { return reserver.take(plain) }
+        // Replacing originals is the one case that keeps the plain name.
+        if settings.replaceOriginals {
+            return reserver.claimFirstFree(ignoreExisting: true) { index in
+                switch index {
+                case 0: return directory.appendingPathComponent(base + ".jpg")
+                default: return directory.appendingPathComponent("\(base)-\(kind(of: source))-\(index).jpg")
+                }
+            }
+        }
+
+        let suffix = settings.resolvedSuffix(for: bytes)
+        let plain = base + suffix
+        // IMG_7323.jpg and IMG_7323.HEIC both want IMG_7323-2MB.jpg — say which is which.
+        let qualified = "\(base)-\(kind(of: source))\(suffix)"
+        let names = reserver.needsSourceKind(base) ? [qualified, plain] : [plain, qualified]
 
         return reserver.claimFirstFree { index in
-            switch index {
-            case 0: return plain
-            case 1: return directory.appendingPathComponent(base + suffix + ".jpg")
-            default: return directory.appendingPathComponent("\(base)\(suffix)-\(index).jpg")
-            }
+            let name = index < names.count ? names[index] : "\(names[0])-\(index)"
+            return directory.appendingPathComponent(name + ".jpg")
         } blocked: { candidate in
             candidate.standardizedFileURL == source.standardizedFileURL
         }
+    }
+
+    private static func kind(of source: URL) -> String {
+        let extension_ = source.pathExtension.lowercased()
+        return extension_.isEmpty ? "image" : extension_
     }
 
     private static func write(_ data: Data, to output: URL, replacing source: URL,
@@ -329,7 +343,8 @@ enum Converter {
         }
         do {
             let directory = try destinationDirectory(for: url, settings: settings)
-            let output = outputURL(for: url, in: directory, settings: settings, reserver: reserver)
+            let output = outputURL(for: url, in: directory, bytes: result.originalBytes,
+                                   settings: settings, reserver: reserver)
             try FileManager.default.copyItem(at: url, to: output)
             apply(settings.keepDates ? fileDates(of: url) : nil, to: output)
             result.output = output

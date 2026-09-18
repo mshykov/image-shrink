@@ -106,7 +106,7 @@ enum CLI {
         }
 
         var failures = 0
-        let reserver = NameReserver()
+        let reserver = NameReserver(sources: files)
         for url in files {
             let result = Converter.convert(url: url, settings: settings, reserver: reserver)
             switch result.status {
