@@ -98,6 +98,12 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
   `appintentsmetadataprocessor` turns that into `Contents/Resources/Metadata.appintents`.
   `scripts/build.sh` does both and skips gracefully when the processor is missing. Check the
   result with `python3 -c "import json;print(json.load(open('…/extract.actionsdata'))['actions'])"`.
+- **Never pin a height on a grouped `Form`** — it is a scroll view, so the content gets
+  clipped and has to be scrolled by a few pixels. `.frame(width:)` plus
+  `.fixedSize(horizontal: false, vertical: true)` makes it report its real height; the
+  popover then sizes itself, and the Settings window takes `hosting.fittingSize`.
+- **On macOS a `TextField`'s first argument is a label, not a placeholder.** It renders
+  beside the field and wraps. Placeholders go in `prompt:`, with `.labelsHidden()`.
 - **App Intents parameter APIs are version-gated**: `supportedContentTypes` on an array
   parameter is macOS 15+, so with a 13.0 target the images parameter takes any file and the
   engine filters.

@@ -508,15 +508,25 @@ struct SettingsPopover: View {
                 Toggle("Keep original date created and modified", isOn: $model.keepDates)
                 Toggle("Remove metadata (EXIF, GPS)", isOn: $model.stripMetadata)
                 Toggle("Move originals to Trash after converting", isOn: $model.replaceOriginals)
-                LabeledContent("Suffix (empty: the file\u{2019}s own size)") {
-                    TextField("automatic", text: $model.suffix)
+                // A long label squeezes the field until the placeholder spills outside it.
+                LabeledContent("Suffix") {
+                    // On macOS the first argument is a label, not a placeholder — it would
+                    // render next to the field. The placeholder is `prompt`.
+                    TextField("Suffix", text: $model.suffix, prompt: Text("automatic"))
+                        .labelsHidden()
                         .textFieldStyle(.roundedBorder)
-                        .frame(width: 100)
+                        .frame(width: 130)
                 }
+                Text("Empty names each file after its own size, like \u{2011}2MB.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
         }
         .formStyle(.grouped)
-        .frame(width: 430, height: 500)
+        // A grouped Form is a scroll view: pinning a height clips it. fixedSize makes it
+        // report its real height, and the popover then sizes itself to the content.
+        .frame(width: 440)
+        .fixedSize(horizontal: false, vertical: true)
     }
 
     private func apply(_ preset: Preset) {

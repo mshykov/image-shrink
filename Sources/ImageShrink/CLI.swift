@@ -28,6 +28,7 @@ enum CLI {
       --snapshot <png>   render the window to a PNG and exit (design review)
       --snapshot-run     convert first, so the snapshot shows the finished state
       --snapshot-settings  render the Settings window instead
+      --snapshot-popover   render the settings popover instead
     """
 
     static func run(arguments: [String]) -> Int32 {
@@ -46,6 +47,7 @@ enum CLI {
         var snapshot: String?
         var snapshotRun = false
         var snapshotSettings = false
+        var snapshotPopover = false
         var index = 0
 
         func next(_ flag: String) -> String? {
@@ -116,6 +118,8 @@ enum CLI {
                 snapshotRun = true
             case "--snapshot-settings":
                 snapshotSettings = true
+            case "--snapshot-popover":
+                snapshotPopover = true
             default:
                 if argument.hasPrefix("-") {
                     FileHandle.standardError.write(Data("unknown option \(argument)\n".utf8))
@@ -129,7 +133,8 @@ enum CLI {
         if let snapshot {
             return MainActor.assumeIsolated {
                 render(to: snapshot, files: files, settings: settings,
-                       convert: snapshotRun, settingsScreen: snapshotSettings)
+                       convert: snapshotRun, settingsScreen: snapshotSettings,
+                       popover: snapshotPopover)
             }
         }
 
@@ -185,7 +190,8 @@ enum CLI {
     /// shows layout and typography rather than the final translucency.
     @MainActor
     private static func render(to path: String, files: [URL], settings: ConversionSettings,
-                               convert: Bool, settingsScreen: Bool = false) -> Int32 {
+                               convert: Bool, settingsScreen: Bool = false,
+                               popover: Bool = false) -> Int32 {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let model = AppModel()
@@ -195,12 +201,19 @@ enum CLI {
         model.add(urls: files)
         if convert { model.convert() }
 
-        let hosting: NSView = settingsScreen
-            ? NSHostingView(rootView: SettingsView())
-            : NSHostingView(rootView: ContentView().environmentObject(model))
-        hosting.frame = NSRect(x: 0, y: 0,
-                               width: settingsScreen ? 460 : 560,
-                               height: settingsScreen ? 500 : 680)
+        let hosting: NSView
+        if settingsScreen {
+            hosting = NSHostingView(rootView: SettingsView())
+        } else if popover {
+            hosting = NSHostingView(rootView: SettingsPopover().environmentObject(model))
+        } else {
+            hosting = NSHostingView(rootView: ContentView().environmentObject(model))
+        }
+        hosting.frame = NSRect(x: 0, y: 0, width: settingsScreen ? 460 : 560, height: 680)
+        if settingsScreen || popover {
+            hosting.layoutSubtreeIfNeeded()
+            hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
+        }
         let window = NSWindow(contentRect: hosting.frame,
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)

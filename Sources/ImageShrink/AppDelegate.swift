@@ -47,11 +47,15 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
     @objc func showSettings(_ sender: Any?) {
         if settingsWindow == nil {
-            let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 460, height: 500),
+            let hosting = NSHostingView(rootView: SettingsView())
+            hosting.layoutSubtreeIfNeeded()
+            let window = NSWindow(contentRect: NSRect(origin: .zero, size: hosting.fittingSize),
                                   styleMask: [.titled, .closable],
                                   backing: .buffered, defer: false)
             window.title = "Image Shrink Settings"
-            window.contentView = NSHostingView(rootView: SettingsView())
+            window.contentView = hosting
+            // The content decides the height; nothing here should ever need scrolling.
+            window.setContentSize(hosting.fittingSize)
             window.isReleasedWhenClosed = false
             window.center()
             settingsWindow = window
