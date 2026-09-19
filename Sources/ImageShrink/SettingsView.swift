@@ -1,4 +1,5 @@
 import AppKit
+import ServiceManagement
 import SwiftUI
 
 /// ⌘, — how the app behaves, as opposed to what one conversion does.
@@ -7,8 +8,26 @@ struct SettingsView: View {
     @AppStorage(Settings.soundKey, store: Settings.defaults) private var sound = true
     @AppStorage(Settings.instantPresetKey, store: Settings.defaults) private var instantPreset = ""
 
+    @State private var opensAtLogin = SMAppService.mainApp.status == .enabled
+
     var body: some View {
         Form {
+            Section("Menu bar") {
+                Toggle("Open at login", isOn: $opensAtLogin)
+                    .onChange(of: opensAtLogin) { wanted in
+                        do {
+                            wanted ? try SMAppService.mainApp.register()
+                                   : try SMAppService.mainApp.unregister()
+                        } catch {
+                            opensAtLogin = SMAppService.mainApp.status == .enabled
+                        }
+                    }
+                Text("Closing the window leaves the app in the menu bar, where images can be "
+                     + "dropped on the icon.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
             Section("When a conversion finishes") {
                 Toggle("Play a sound", isOn: $sound)
                 Toggle("Show a notification", isOn: $notify)

@@ -56,6 +56,19 @@ so it can feed the next step of a shortcut.
 `--help` lists the options: `--target-mb`, `--max-dim`, `--dest`, `--subfolder`, `--suffix`,
 `--replace`, `--strip`, `--no-skip`, `--quiet`.
 
+## Without the window
+
+Most conversions never need it:
+
+- **Finder** — the Quick Actions, or ⌃⌘J on a selection.
+- **The menu bar icon** — drop images straight onto it, or click it for the limit, the recent
+  batches and a drop zone.
+- Either way a small panel appears under the menu bar, counts the files down and then says
+  what it saved, with a **Show** button. It leaves after six seconds.
+
+Closing the window does not quit the app: it stays in the menu bar, and the Dock icon goes
+away until you open a window again. Settings (⌘,) has an **Open at login** switch.
+
 ## Presets
 
 | Preset | Limit | Longest side |

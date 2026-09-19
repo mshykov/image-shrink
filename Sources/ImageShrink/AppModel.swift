@@ -70,14 +70,20 @@ final class AppModel: ObservableObject {
 
     /// "2 files are resized, 2 are only converted to JPEG"
     var plan: String {
-        let shrinking = items.filter { item in
-            guard let estimate = item.estimate else { return false }
-            return estimate.bytes < item.bytes
-        }.count
-        let untouched = items.count - shrinking
+        var shrinking = 0, growing = 0, same = 0
+        for item in items {
+            guard let estimate = item.estimate else { continue }
+            if estimate.bytes < item.bytes { shrinking += 1 }
+            else if estimate.bytes > item.bytes { growing += 1 }
+            else { same += 1 }
+        }
         var parts: [String] = []
         if shrinking > 0 { parts.append("\(shrinking) \(shrinking == 1 ? "file is" : "files are") resized") }
-        if untouched > 0 { parts.append("\(untouched) \(parts.isEmpty ? "are" : "are") only converted to JPEG") }
+        if same > 0 { parts.append("\(same) only converted to JPEG") }
+        // JPEG needs about twice the bytes of HEIC, so say it rather than surprise them.
+        if growing > 0 {
+            parts.append("\(growing) \(growing == 1 ? "grows" : "grow") as JPEG at this limit")
+        }
         return parts.joined(separator: ", ")
     }
 
@@ -258,6 +264,7 @@ final class AppModel: ObservableObject {
         runStarted = nil
         for index in items.indices { items[index].stage = nil }
         DockProgress.clear()
+        History.add(count: results.count, before: convertedBytes, after: producedBytes)
         guard !cancelled, NSApp?.isActive == false else { return }
         Notifier.post(title: "Images converted", body: summaryLine)
     }

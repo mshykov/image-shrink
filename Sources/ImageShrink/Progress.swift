@@ -74,7 +74,7 @@ enum Notifier {
     }
 
     /// Unbundled runs (the binary straight from build/) have no notification identity.
-    private static var isBundled: Bool {
+    static var isBundled: Bool {
         Bundle.main.bundleURL.pathExtension == "app" && Bundle.main.bundleIdentifier != nil
     }
 
@@ -107,5 +107,50 @@ enum Feedback {
         sound.play()
         // A command-line run would exit before the sound is heard.
         Thread.sleep(forTimeInterval: 0.6)
+    }
+}
+
+
+/// Totals gathered from the concurrent workers of a window-less run.
+final class RunTotals: @unchecked Sendable {
+    private let lock = NSLock()
+    private var before = 0
+    private var after = 0
+    private var converted = 0
+    private var failures = 0
+    private var firstFailure: String?
+    private var finished = false
+
+    var isComplete: Bool {
+        lock.lock()
+        defer { lock.unlock() }
+        return finished
+    }
+
+    func add(_ result: FileResult) {
+        lock.lock()
+        defer { lock.unlock() }
+        before += result.originalBytes
+        after += result.newBytes ?? result.originalBytes
+        if case .failed(let reason) = result.status {
+            failures += 1
+            if firstFailure == nil {
+                firstFailure = "\(result.source.lastPathComponent): \(reason)"
+            }
+        } else {
+            converted += 1
+        }
+    }
+
+    func complete() {
+        lock.lock()
+        finished = true
+        lock.unlock()
+    }
+
+    func snapshot() -> (before: Int, after: Int, converted: Int, failures: Int, firstFailure: String?) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (before, after, converted, failures, firstFailure)
     }
 }

@@ -29,6 +29,7 @@ enum CLI {
       --snapshot-run     convert first, so the snapshot shows the finished state
       --snapshot-settings  render the Settings window instead
       --snapshot-popover   render the settings popover instead
+      --snapshot-menubar   render the menu bar panel instead
     """
 
     static func run(arguments: [String]) -> Int32 {
@@ -48,6 +49,7 @@ enum CLI {
         var snapshotRun = false
         var snapshotSettings = false
         var snapshotPopover = false
+        var snapshotMenuBar = false
         var index = 0
 
         func next(_ flag: String) -> String? {
@@ -120,6 +122,8 @@ enum CLI {
                 snapshotSettings = true
             case "--snapshot-popover":
                 snapshotPopover = true
+            case "--snapshot-menubar":
+                snapshotMenuBar = true
             default:
                 if argument.hasPrefix("-") {
                     FileHandle.standardError.write(Data("unknown option \(argument)\n".utf8))
@@ -134,7 +138,7 @@ enum CLI {
             return MainActor.assumeIsolated {
                 render(to: snapshot, files: files, settings: settings,
                        convert: snapshotRun, settingsScreen: snapshotSettings,
-                       popover: snapshotPopover)
+                       popover: snapshotPopover, menuBar: snapshotMenuBar)
             }
         }
 
@@ -147,6 +151,12 @@ enum CLI {
             return MainActor.assumeIsolated {
                 selfTest(files: files, settings: settings, cancelAfter: cancelAfter)
             }
+        }
+
+        // A window-less run reports through the floating panel when it can — that is the
+        // whole interface for conversions started in Finder.
+        if quiet, Notifier.isBundled, !files.isEmpty {
+            return MainActor.assumeIsolated { runWithHUD(files: files, settings: settings) }
         }
 
         var failures = 0
@@ -186,12 +196,62 @@ enum CLI {
         return failures > 0 ? 1 : 0
     }
 
+    /// The Finder path: no window, a floating panel that reports and then disappears.
+    @MainActor
+    private static func runWithHUD(files: [URL], settings: ConversionSettings) -> Int32 {
+        _ = NSApplication.shared
+        NSApp.setActivationPolicy(.accessory)
+
+        let cancellation = Cancellation()
+        let hud = ConversionHUD(total: files.count, onStop: { cancellation.cancel() })
+        hud.show()
+
+        let box = RunTotals()
+        let counter = Counter()
+        let reserver = NameReserver(sources: files)
+
+        DispatchQueue.global(qos: .userInitiated).async {
+            DispatchQueue.concurrentPerform(iterations: files.count) { index in
+                guard !cancellation.isCancelled else { return }
+                let result = Converter.convert(url: files[index], settings: settings,
+                                               reserver: reserver)
+                let done = counter.increment()
+                box.add(result)
+                DispatchQueue.main.async { hud.advance(done: done, latest: result.output) }
+            }
+            box.complete()
+        }
+
+        pump(while: { !box.isComplete }, limit: 600)
+
+        let totals = box.snapshot()
+        History.add(count: totals.converted, before: totals.before, after: totals.after)
+        Feedback.play(success: totals.failures == 0)
+        if totals.failures > 0 {
+            hud.incomplete(converted: totals.converted,
+                           message: totals.firstFailure ?? "Some files could not be converted")
+        } else {
+            hud.finish(before: totals.before, after: totals.after)
+        }
+        // Let the panel be read before the process goes away.
+        pump(while: { true }, limit: totals.failures > 0 ? 13 : 7)
+        return totals.failures > 0 ? 1 : 0
+    }
+
+    @MainActor
+    private static func pump(while condition: () -> Bool, limit: TimeInterval) {
+        let deadline = Date().addingTimeInterval(limit)
+        while condition() && Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        }
+    }
+
     /// Renders the real window offscreen. Glass samples what is behind it, so the capture
     /// shows layout and typography rather than the final translucency.
     @MainActor
     private static func render(to path: String, files: [URL], settings: ConversionSettings,
                                convert: Bool, settingsScreen: Bool = false,
-                               popover: Bool = false) -> Int32 {
+                               popover: Bool = false, menuBar: Bool = false) -> Int32 {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let model = AppModel()
@@ -206,11 +266,14 @@ enum CLI {
             hosting = NSHostingView(rootView: SettingsView())
         } else if popover {
             hosting = NSHostingView(rootView: SettingsPopover().environmentObject(model))
+        } else if menuBar {
+            hosting = NSHostingView(rootView: MenuBarPanel(model: model, openWindow: {},
+                                                           dropped: { _ in }))
         } else {
             hosting = NSHostingView(rootView: ContentView().environmentObject(model))
         }
         hosting.frame = NSRect(x: 0, y: 0, width: settingsScreen ? 460 : 560, height: 680)
-        if settingsScreen || popover {
+        if settingsScreen || popover || menuBar {
             hosting.layoutSubtreeIfNeeded()
             hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
         }

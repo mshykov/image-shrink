@@ -31,6 +31,10 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 | `Sources/ImageShrink/Theme.swift` | The design system: layers, colours, type, geometry. |
 | `Sources/ImageShrink/Estimator.swift` | Size-versus-quality curves, so rows can predict the result. |
 | `Sources/ImageShrink/SettingsPopover.swift` | The popover behind the toolbar's slider button. |
+| `Sources/ImageShrink/MenuBar.swift` | Status item, drops on the icon, and the window-less run it starts. |
+| `Sources/ImageShrink/MenuBarPanel.swift` | The panel behind the status item. |
+| `Sources/ImageShrink/HUD.swift` | The floating panel that reports a run with no window. |
+| `Sources/ImageShrink/History.swift` | Recent batches, shown in the menu bar panel. |
 | `Sources/ImageShrink/CLI.swift` | `--cli` headless mode, `--selftest` (drives `AppModel` without a window) and `--snapshot` (renders the window to a PNG). |
 | `Sources/ImageShrink/Glass.swift` | Liquid Glass helpers with pre-26 fallbacks, window chrome, window material. |
 | `Sources/ImageShrink/Thumbnail.swift` | Card previews, decoded off the main thread. |
@@ -139,6 +143,11 @@ with the numbers doing the talking.
   the primary button, green only on numbers that went down, orange for a file that could not
   reach the limit, red only for moving originals to Trash.
 - **No disabled primary button**: with an empty queue there is no footer at all.
+- **The window is the exception, not the product.** Conversions started in Finder or by
+  dropping on the menu bar icon report through `ConversionHUD` — a floating panel under the
+  menu bar that lingers six seconds — and never open a window. Closing the window leaves the
+  app in the menu bar and drops the Dock icon (`setActivationPolicy(.accessory)`); the panel
+  carries the limit, a drop zone, recent batches and Quit.
 - Numbers use `.tabularNumbers()` so they stop jittering as estimates update.
 
 ### Estimates

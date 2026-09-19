@@ -2,16 +2,31 @@ import AppKit
 import SwiftUI
 
 @MainActor
-final class AppDelegate: NSObject, NSApplicationDelegate {
+final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private let model = AppModel()
     private var window: NSWindow?
     private var settingsWindow: NSWindow?
     private var settingsPopover: NSPopover?
     private var settingsButton: NSButton?
+    private var menuBar: MenuBarController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
+        let menuBar = MenuBarController(model: model) { [weak self] in self?.showWindow() }
+        menuBar.install()
+        self.menuBar = menuBar
         showWindow()
+    }
+
+    /// The window is the exception, not the product: closing it leaves the app in the menu
+    /// bar rather than quitting, and drops the Dock icon while there is nothing to show.
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        false
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard (notification.object as? NSWindow) === window else { return }
+        DispatchQueue.main.async { NSApp.setActivationPolicy(.accessory) }
     }
 
     /// Finder Quick Action and "Open With" both land here.
@@ -20,8 +35,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         model.add(urls: urls)
         showWindow()
     }
-
-    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool { true }
 
     func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
         showWindow()
@@ -42,8 +55,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.isReleasedWhenClosed = false
             window.center()
             window.setFrameAutosaveName("main")
+            window.delegate = self
             self.window = window
         }
+        NSApp.setActivationPolicy(.regular)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
     }

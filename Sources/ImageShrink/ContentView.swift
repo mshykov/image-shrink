@@ -86,6 +86,9 @@ struct TopBar: View {
                     .font(Theme.control)
                     .foregroundStyle(.secondary)
                     .labelStyle(.titleAndIcon)
+                    .lineLimit(1)
+                    .truncationMode(.tail)
+                    .layoutPriority(-1)
             }
         }
         .disabled(model.isRunning)
@@ -116,6 +119,7 @@ struct LimitPicker: View {
         }
         .padding(3)
         .background(Capsule().fill(Color.primary.opacity(0.07)))
+        .fixedSize()
     }
 
     private func button(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -123,6 +127,8 @@ struct LimitPicker: View {
             Text(label)
                 .font(Theme.control)
                 .tabularNumbers()
+                .lineLimit(1)
+                .fixedSize()
                 .foregroundStyle(selected ? Color.white : Color.primary)
                 .padding(.horizontal, Theme.normal)
                 .padding(.vertical, Theme.tight)
@@ -160,6 +166,7 @@ struct LimitField: View {
         .padding(.horizontal, Theme.snug)
         .padding(.vertical, 3)
         .background(Capsule().fill(Color.primary.opacity(0.07)))
+        .fixedSize()
     }
 }
 
@@ -356,12 +363,12 @@ struct FileRow: View {
                             .foregroundStyle(.tertiary)
                         Text(estimateLabel)
                             .fontWeight(.semibold)
-                            .foregroundStyle(shrinks ? Theme.saved : .primary)
+                            .foregroundStyle(estimateTint)
                     }
                     .font(Theme.meta)
                     .tabularNumbers()
 
-                    SizeBar(fraction: fraction, shrinks: shrinks)
+                    SizeBar(fraction: fraction, shrinks: shrinks, grows: grows)
                         .frame(width: 118)
                 }
                 if hovering && !model.isRunning {
@@ -385,6 +392,16 @@ struct FileRow: View {
         case .untouched: return Format.bytes(estimate.bytes)
         default: return "~\(Format.bytes(estimate.bytes))"
         }
+    }
+
+    private var grows: Bool {
+        guard let estimate = item.estimate else { return false }
+        return estimate.bytes > item.bytes
+    }
+
+    private var estimateTint: Color {
+        if shrinks { return Theme.saved }
+        return grows ? Theme.attention : .primary
     }
 
     private var shrinks: Bool {
@@ -435,13 +452,14 @@ struct FileRow: View {
 struct SizeBar: View {
     let fraction: Double
     var shrinks: Bool = true
+    var grows: Bool = false
 
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.primary.opacity(0.12))
                 Capsule()
-                    .fill(shrinks ? Theme.saved : Color.secondary)
+                    .fill(shrinks ? Theme.saved : (grows ? Theme.attention : Color.secondary))
                     .frame(width: max(2, geometry.size.width * fraction))
             }
         }
