@@ -18,11 +18,16 @@ enum CLI {
       --replace          move originals to the Trash after converting
       --strip            drop EXIF/GPS metadata
       --no-skip          re-encode even if the file is already under the limit
+      --preset <id>      use a named preset (see --list-presets)
+      --list-presets     print the presets, tab separated, for the installer
       --saved            start from the settings the app window last used
-      --quiet            print only failures
+      --quiet            print only failures, and post a notification instead
+      --notify           post a completion notification
       --selftest         drive the window's own model headlessly (used by scripts/smoke-test.sh)
+      --cancel-after <s> with --selftest: stop the run after this many seconds
       --snapshot <png>   render the window to a PNG and exit (design review)
       --snapshot-run     convert first, so the snapshot shows the finished state
+      --snapshot-settings  render the Settings window instead
     """
 
     static func run(arguments: [String]) -> Int32 {
@@ -30,11 +35,17 @@ enum CLI {
         var settings = arguments.contains("--saved")
             ? MainActor.assumeIsolated { AppModel().settings() }
             : ConversionSettings(targetBytes: 2_000_000, maxDimension: nil)
+        // Settings can pin the instant action to a preset instead of the last used values.
+        if arguments.contains("--saved"), let pinned = Preset.named(Settings.instantPreset) {
+            settings = pinned.applied(to: settings)
+        }
         var files: [URL] = []
         var quiet = false
         var selftest = false
+        var cancelAfter: Double = 0
         var snapshot: String?
         var snapshotRun = false
+        var snapshotSettings = false
         var index = 0
 
         func next(_ flag: String) -> String? {
@@ -77,15 +88,34 @@ enum CLI {
                 settings.skipSmallEnough = false
             case "--saved":
                 break
+            case "--list-presets":
+                for preset in Preset.all {
+                    print("\(preset.id)\t\(preset.menuTitle)\t\(preset.detail)")
+                }
+                return 0
+            case "--preset":
+                guard let value = next(argument) else { return 2 }
+                guard let preset = Preset.named(value) else {
+                    FileHandle.standardError.write(Data("unknown preset \(value)\n".utf8))
+                    return 2
+                }
+                settings = preset.applied(to: settings)
             case "--quiet":
                 quiet = true
+            case "--notify":
+                break
             case "--selftest":
                 selftest = true
+            case "--cancel-after":
+                guard let value = next(argument), let seconds = Double(value) else { return 2 }
+                cancelAfter = seconds
             case "--snapshot":
                 guard let value = next(argument) else { return 2 }
                 snapshot = value
             case "--snapshot-run":
                 snapshotRun = true
+            case "--snapshot-settings":
+                snapshotSettings = true
             default:
                 if argument.hasPrefix("-") {
                     FileHandle.standardError.write(Data("unknown option \(argument)\n".utf8))
@@ -98,7 +128,8 @@ enum CLI {
 
         if let snapshot {
             return MainActor.assumeIsolated {
-                render(to: snapshot, files: files, settings: settings, convert: snapshotRun)
+                render(to: snapshot, files: files, settings: settings,
+                       convert: snapshotRun, settingsScreen: snapshotSettings)
             }
         }
 
@@ -108,15 +139,20 @@ enum CLI {
         }
 
         if selftest {
-            return MainActor.assumeIsolated { selfTest(files: files, settings: settings) }
+            return MainActor.assumeIsolated {
+                selfTest(files: files, settings: settings, cancelAfter: cancelAfter)
+            }
         }
 
         var failures = 0
+        var savedBytes = 0
+        let notify = arguments.contains("--notify")
         let reserver = NameReserver(sources: files)
         for url in files {
             let result = Converter.convert(url: url, settings: settings, reserver: reserver)
             switch result.status {
             case .converted:
+                savedBytes += max(0, result.originalBytes - (result.newBytes ?? result.originalBytes))
                 guard !quiet else { break }
                 let quality = result.quality.map { " q\(Int($0 * 100))" } ?? ""
                 let pixels = Format.pixels(result.pixelSize)
@@ -132,6 +168,16 @@ enum CLI {
                 FileHandle.standardError.write(Data("\(url.lastPathComponent): \(reason)\n".utf8))
             }
         }
+        if quiet || notify {
+            Feedback.play(success: failures == 0)
+            let converted = files.count - failures
+            let saved = savedBytes
+            var body = converted == 1 ? "1 image" : "\(converted) images"
+            if saved > 0 { body += " · saved \(Format.bytes(saved))" }
+            if failures > 0 { body += " · \(failures) failed" }
+            Notifier.post(title: failures > 0 ? "Converted with errors" : "Images converted",
+                          body: body, waitForDelivery: true)
+        }
         return failures > 0 ? 1 : 0
     }
 
@@ -139,7 +185,7 @@ enum CLI {
     /// shows layout and typography rather than the final translucency.
     @MainActor
     private static func render(to path: String, files: [URL], settings: ConversionSettings,
-                               convert: Bool) -> Int32 {
+                               convert: Bool, settingsScreen: Bool = false) -> Int32 {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         let model = AppModel()
@@ -149,8 +195,12 @@ enum CLI {
         model.add(urls: files)
         if convert { model.convert() }
 
-        let hosting = NSHostingView(rootView: ContentView().environmentObject(model))
-        hosting.frame = NSRect(x: 0, y: 0, width: 560, height: 680)
+        let hosting: NSView = settingsScreen
+            ? NSHostingView(rootView: SettingsView())
+            : NSHostingView(rootView: ContentView().environmentObject(model))
+        hosting.frame = NSRect(x: 0, y: 0,
+                               width: settingsScreen ? 460 : 560,
+                               height: settingsScreen ? 500 : 680)
         let window = NSWindow(contentRect: hosting.frame,
                               styleMask: [.titled, .closable, .resizable],
                               backing: .buffered, defer: false)
@@ -196,7 +246,8 @@ enum CLI {
 
     /// Runs the exact path the Convert button takes, without a window.
     @MainActor
-    private static func selfTest(files: [URL], settings: ConversionSettings) -> Int32 {
+    private static func selfTest(files: [URL], settings: ConversionSettings,
+                                 cancelAfter: Double = 0) -> Int32 {
         let model = AppModel()
         model.targetMB = Double(settings.targetBytes) / 1_000_000
         model.maxDimension = settings.maxDimension ?? 0
@@ -212,8 +263,16 @@ enum CLI {
             return 1
         }
         model.convert()
+        if cancelAfter > 0 {
+            DispatchQueue.main.asyncAfter(deadline: .now() + cancelAfter) { model.cancel() }
+        }
         let deadline = Date().addingTimeInterval(120)
         while model.isRunning && Date() < deadline {
+            RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        }
+        // The last results arrive on the main actor just after the run ends.
+        let settle = Date().addingTimeInterval(0.4)
+        while Date() < settle {
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
         }
 
@@ -224,7 +283,11 @@ enum CLI {
         }
         let failures = model.results.filter(\.isFailure).count
         print("selftest: \(model.results.count) result(s), \(failures) failure(s), "
-              + "saved \(Format.bytes(model.savedBytes))")
+              + "\(model.pending.count) still pending, saved \(Format.bytes(model.savedBytes))")
+        if cancelAfter > 0 {
+            // A cancelled run must stop cleanly: not running, and some work left undone.
+            return !model.isRunning && !model.pending.isEmpty ? 0 : 1
+        }
         return failures == 0 && model.results.count == files.count ? 0 : 1
     }
 }

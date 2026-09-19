@@ -30,7 +30,11 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 | `Sources/ImageShrink/ContentView.swift` | The SwiftUI window, hosted in an AppKit `NSWindow`. |
 | `Sources/ImageShrink/CLI.swift` | `--cli` headless mode, `--selftest` (drives `AppModel` without a window) and `--snapshot` (renders the window to a PNG). |
 | `Sources/ImageShrink/Glass.swift` | Liquid Glass helpers with pre-26 fallbacks, window chrome, window material. |
-| `Sources/ImageShrink/Thumbnail.swift` | Row previews, decoded off the main thread. |
+| `Sources/ImageShrink/Thumbnail.swift` | Card previews, decoded off the main thread. |
+| `Sources/ImageShrink/Preset.swift` | The named presets — single source of truth for the window, the CLI and the installer. |
+| `Sources/ImageShrink/Progress.swift` | Cancellation, the Dock progress bar, notifications, the finish sound. |
+| `Sources/ImageShrink/Settings.swift` | App-level preferences (sound, notification, pinned instant preset). |
+| `Sources/ImageShrink/SettingsView.swift` | The ⌘, window. |
 | `Resources/Info.plist` | Bundle metadata, the `NSServices` entry, document types. |
 | `scripts/make-quick-action.sh` | Generates both Automator `.workflow` bundles as plain plist XML. |
 | `scripts/lib.sh` | Removing earlier installs and pruning their services preferences. |
@@ -76,6 +80,16 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
   --saved --quiet`, so there is no window and no dock icon. `--saved` builds its settings by
   constructing `AppModel`, which reads the same `UserDefaults` the window writes — keep it
   that way rather than duplicating the key list.
+- **`NSApp` is nil in the CLI paths and traps when unwrapped.** Anything touching the Dock
+  tile, `NSApp.isActive` or the icon has to go through `NSApp?`. This crashed `--selftest`
+  (exit 133, no output) the moment the Dock progress bar was added.
+- **Never name a `UserDefaults` suite after the bundle identifier.** macOS logs "does not
+  make sense and will not work" and the store misbehaves; inside the bundle
+  `UserDefaults.standard` already is that domain.
+- **The engine's quality floors are load-bearing.** `noInflationFloor` is 0.50: a real
+  1.2 MB iPhone HEIC needs about q60 to match its own size, so at 0.60 the rule sat exactly
+  on the edge — the smoke test flickered between q60 fitting and not fitting, which looked
+  like an engine bug and was not.
 - **`log show` is unavailable in some agent shells**, which is why the app keeps its own
   trail at `~/Library/Logs/ImageShrink.log`. Use that to verify a Quick Action run.
 - GUI verification from an agent session is limited: `screencapture` needs Screen Recording

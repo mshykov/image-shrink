@@ -20,6 +20,7 @@ xcrun swift tools/make-icon.swift build/AppIcon.iconset >/dev/null
 iconutil -c icns build/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+cp README.md "$APP/Contents/Resources/README.md"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
 echo "› signing (ad-hoc)"

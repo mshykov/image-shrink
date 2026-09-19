@@ -270,16 +270,27 @@ PLIST
 }
 
 BIN='"$HOME/Applications/Image Shrink.app/Contents/MacOS/ImageShrink"'
+LOCAL_BIN="build/Image Shrink.app/Contents/MacOS/ImageShrink"
+[ -x "$LOCAL_BIN" ] || LOCAL_BIN="build/ImageShrink"
 
 make_workflow "$OUT/Convert to JPEG….workflow" \
     "dev.shykov.imageshrink.quickaction" \
     "Convert to JPEG…" \
     'open -b dev.shykov.imageshrink "$@"'
 
-# No window, no dock icon: the engine runs in place and reports with a sound.
+# No window, no dock icon: the engine runs in place and reports with a sound and a notice.
 # The shortcut lives in the title because the Quick Actions submenu shows no key
 # equivalents of its own — this is the only place in Finder it can be seen.
 make_workflow "$OUT/Convert to JPEG Now ⌃⌘J.workflow" \
     "dev.shykov.imageshrink.instant" \
     "Convert to JPEG Now ⌃⌘J" \
-    "if ${BIN} --cli --saved --quiet \"\$@\"; then afplay /System/Library/Sounds/Pop.aiff; else afplay /System/Library/Sounds/Basso.aiff; fi"
+    "${BIN} --cli --saved --quiet \"\$@\""
+
+# One action per preset, straight from the list the app itself defines.
+while IFS=$'\t' read -r id title detail; do
+    [ -n "$id" ] || continue
+    make_workflow "$OUT/$title.workflow" \
+        "dev.shykov.imageshrink.preset.$id" \
+        "$title" \
+        "${BIN} --cli --preset $id --quiet \"\$@\""
+done < <("$LOCAL_BIN" --cli --list-presets)

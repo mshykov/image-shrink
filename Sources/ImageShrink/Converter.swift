@@ -164,7 +164,9 @@ enum Converter {
     }
 
     /// Below this, matching the original's size costs more than the extra bytes are worth.
-    private static let noInflationFloor = 0.60
+    /// 0.50 is the usual "fine for sharing" mark for JPEG; a real 1.2 MB iPhone HEIC needs
+    /// about 0.60 to match, so a higher floor leaves too many photos inflating instead.
+    private static let noInflationFloor = 0.50
 
     /// Binary search for the highest quality that still fits.
     private static func searchQuality(_ image: CGImage, properties: [CFString: Any],

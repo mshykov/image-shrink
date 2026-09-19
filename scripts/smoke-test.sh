@@ -53,6 +53,12 @@ grown=$(only "$WORK/noinflate/photo-*.jpg")
 [ "$(size "$grown")" -le "$(size "$WORK/photo.heic")" ] \
     || fail "converting a HEIC with an 8 MB limit produced a bigger file"
 
+echo "› a cancelled run stops cleanly and leaves work pending"
+mkdir -p "$WORK/many"
+for i in 1 2 3 4 5 6 7 8 9 10 11 12; do cp "$WORK/photo.jpg" "$WORK/many/photo$i.jpg"; done
+"$BIN" --cli --selftest --cancel-after 0.3 --target-mb 1 --dest "$WORK/cancelled" "$WORK/many"/*.jpg \
+    | tail -1 | grep -q "still pending" || fail "cancelling left nothing pending"
+
 echo "› files already under the limit are left alone"
 out="$("$BIN" --cli --target-mb 5 "$WORK/tiny/photo-500KB.jpg")"
 [[ "$out" == *"already under the limit"* ]] || fail "small file was re-encoded: $out"

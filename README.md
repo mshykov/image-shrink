@@ -30,7 +30,8 @@ to that folder. That prompt is macOS, once per folder.
 | Quick Action | What happens |
 | --- | --- |
 | **Convert to JPEG…** | The window opens with the selection loaded. Pick the limit, convert. |
-| **Convert to JPEG Now ⌃⌘J** | No window at all. Converts straight away with the settings the window used last, then plays a sound — a pop when it worked, a thud when something failed. |
+| **Convert to JPEG Now ⌃⌘J** | No window at all. Converts straight away with the settings the window used last (or a preset you pin in Settings), then a sound and a notification. |
+| **· Email 2 MB**, **· Web 1 MB**, **· Messenger 500 KB** | One action per preset, also without a window. |
 
 The shortcut is written into the menu title because the Quick Actions submenu does not show
 key equivalents by itself, and the app window repeats it along the bottom edge.
@@ -50,6 +51,27 @@ Add Files.
 
 `--help` lists the options: `--target-mb`, `--max-dim`, `--dest`, `--subfolder`, `--suffix`,
 `--replace`, `--strip`, `--no-skip`, `--quiet`.
+
+## Presets
+
+| Preset | Limit | Longest side |
+| --- | --- | --- |
+| Email | 2 MB | original |
+| Web | 1 MB | 1920 px |
+| Messenger | 500 KB | 1920 px |
+
+They are in the settings popover, each has its own Finder action, and Settings (⌘,) can pin
+⌃⌘J to one of them instead of "whatever the window used last". The list lives in
+`Sources/ImageShrink/Preset.swift` — the window, the CLI (`--preset`, `--list-presets`) and
+the installer all read it, so adding one there adds its Finder action on the next install.
+
+## While it runs
+
+- **Esc stops the batch.** Images already being encoded finish; the rest stay in the list,
+  ready to convert again.
+- The Dock icon carries a progress bar, so a long run is legible with the window hidden.
+- Runs with no window (the Finder actions) finish with a sound and a notification. Both can
+  be turned off in Settings.
 
 ## Design
 

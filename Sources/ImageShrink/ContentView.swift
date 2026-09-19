@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 
 struct ContentView: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var isTargeted = false
 
     var body: some View {
@@ -31,7 +32,7 @@ struct ContentView: View {
                     .allowsHitTesting(false)
             }
         }
-        .animation(.easeOut(duration: 0.15), value: isTargeted)
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.15), value: isTargeted)
     }
 
     private func load(_ providers: [NSItemProvider]) {
@@ -49,6 +50,7 @@ struct ContentView: View {
 
 struct PhotoGrid: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     private let columns = [GridItem(.adaptive(minimum: 132, maximum: 190), spacing: 16)]
 
@@ -61,7 +63,7 @@ struct PhotoGrid: View {
             }
             .padding(.horizontal, 18)
             .padding(.vertical, 16)
-            .animation(.snappy(duration: 0.25), value: model.items.count)
+            .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: model.items.count)
         }
         .scrollContentBackground(.hidden)
     }
@@ -75,6 +77,21 @@ struct PhotoCard: View {
 
     private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 12, style: .continuous) }
 
+    private var spokenDescription: String {
+        let name = item.result?.output?.lastPathComponent ?? item.url.lastPathComponent
+        switch item.result?.status {
+        case .converted:
+            return "\(name), \(Format.bytes(item.bytes)) became "
+                 + "\(Format.bytes(item.result?.newBytes ?? 0))"
+        case .skipped(let reason):
+            return "\(name), \(Format.bytes(item.bytes)), \(reason)"
+        case .failed(let reason):
+            return "\(name), failed: \(reason)"
+        case nil:
+            return "\(name), \(Format.bytes(item.bytes)), waiting"
+        }
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 7) {
             ZStack(alignment: .topTrailing) {
@@ -87,6 +104,8 @@ struct PhotoCard: View {
         }
         .onHover { hovering = $0 }
         .task(id: item.url) { thumbnail = await Thumbnail.load(item.url, size: 420) }
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(spokenDescription)
     }
 
     private var preview: some View {
@@ -144,6 +163,7 @@ struct PhotoCard: View {
         .buttonStyle(.plain)
         .padding(6)
         .help("Remove from the list")
+        .accessibilityLabel("Remove \(item.url.lastPathComponent)")
     }
 
     private var caption: some View {
@@ -195,6 +215,7 @@ struct SizeBar: View {
             }
         }
         .frame(height: 3)
+        .accessibilityHidden(true)
     }
 }
 
@@ -257,6 +278,7 @@ struct TopBar: View {
                 Image(systemName: "slider.horizontal.3")
             }
             .help("All settings")
+            .accessibilityLabel("All settings")
             .popover(isPresented: $showSettings, arrowEdge: .bottom) {
                 SettingsPopover().environmentObject(model)
             }
@@ -344,6 +366,9 @@ struct ActionBar: View {
                             .font(.callout)
                             .monospacedDigit()
                             .foregroundStyle(.secondary)
+                        Button("Stop") { model.cancel() }
+                            .glassButton()
+                            .keyboardShortcut(.cancelAction)
                     }
 
                     if model.isFinished {
@@ -407,6 +432,26 @@ struct SettingsPopover: View {
 
     var body: some View {
         Form {
+            Section("Presets") {
+                HStack(spacing: 8) {
+                    ForEach(Preset.all) { preset in
+                        Button { apply(preset) } label: {
+                            VStack(spacing: 1) {
+                                Text(preset.name)
+                                Text(preset.detail)
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding(.vertical, 2)
+                        }
+                        .buttonStyle(.bordered)
+                        .tint(isActive(preset) ? .accentColor : nil)
+                        .accessibilityLabel("\(preset.name) preset, \(preset.detail)")
+                    }
+                }
+            }
+
             Section("Maximum file size") {
                 LabeledContent("Limit") {
                     HStack(spacing: 6) {
@@ -471,7 +516,16 @@ struct SettingsPopover: View {
             }
         }
         .formStyle(.grouped)
-        .frame(width: 420, height: 430)
+        .frame(width: 430, height: 500)
+    }
+
+    private func apply(_ preset: Preset) {
+        model.targetMB = preset.targetMB
+        model.maxDimension = preset.maxDimension
+    }
+
+    private func isActive(_ preset: Preset) -> Bool {
+        abs(model.targetMB - preset.targetMB) < 0.001 && model.maxDimension == preset.maxDimension
     }
 
     private func chooseFolder() {

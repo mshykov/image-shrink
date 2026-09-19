@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import SwiftUI
 import UniformTypeIdentifiers
@@ -16,6 +17,9 @@ final class AppModel: ObservableObject {
 
     @Published var items: [Item] = []
     @Published var isRunning = false
+
+    private var cancellation: Cancellation?
+    private var runTotal = 0
 
     // Settings — restored from the previous run so the sheet opens pre-filled.
     @Published var targetMB: Double = Defaults.double("targetMB", 2)
@@ -90,24 +94,53 @@ final class AppModel: ObservableObject {
         let ids = queue.map(\.id)
         Log.write("converting \(urls.count) file(s) → \(settings.targetBytes / 1000) KB limit")
         isRunning = true
+        runTotal = urls.count
+        let cancellation = Cancellation()
+        self.cancellation = cancellation
+        DockProgress.show(0)
 
         Task.detached(priority: .userInitiated) { [self] in
             let reserver = NameReserver(sources: urls)
             DispatchQueue.concurrentPerform(iterations: urls.count) { index in
+                guard !cancellation.isCancelled else { return }
                 let result = Converter.convert(url: urls[index], settings: settings, reserver: reserver)
                 if case .failed(let reason) = result.status {
                     Log.write("failed \(urls[index].lastPathComponent): \(reason)")
                 }
                 Task { @MainActor in self.apply(result, to: ids[index]) }
             }
-            Log.write("finished \(urls.count) file(s)")
-            await MainActor.run { self.isRunning = false }
+            let stopped = cancellation.isCancelled
+            Log.write(stopped ? "cancelled" : "finished \(urls.count) file(s)")
+            await MainActor.run { self.finish(cancelled: stopped) }
         }
+    }
+
+    /// Stops after the images already in flight; whatever is left stays pending.
+    func cancel() {
+        cancellation?.cancel()
     }
 
     private func apply(_ result: FileResult, to id: Item.ID) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         items[index].result = result
+        if runTotal > 0 { DockProgress.show(Double(done) / Double(runTotal)) }
+    }
+
+    private func finish(cancelled: Bool) {
+        isRunning = false
+        cancellation = nil
+        runTotal = 0
+        DockProgress.clear()
+        guard !cancelled, NSApp?.isActive == false else { return }
+        // Only worth a notice when the window is not the thing being looked at.
+        Notifier.post(title: "Images converted",
+                      body: summaryLine)
+    }
+
+    var summaryLine: String {
+        let count = results.count
+        let images = count == 1 ? "1 image" : "\(count) images"
+        return savedBytes > 0 ? "\(images) · saved \(Format.bytes(savedBytes))" : images
     }
 
     func save() {
