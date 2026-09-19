@@ -35,6 +35,8 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 | `Sources/ImageShrink/Progress.swift` | Cancellation, the Dock progress bar, notifications, the finish sound. |
 | `Sources/ImageShrink/Settings.swift` | App-level preferences (sound, notification, pinned instant preset). |
 | `Sources/ImageShrink/SettingsView.swift` | The ⌘, window. |
+| `Sources/ImageShrink/Intents.swift` | The Shortcuts action (App Intents). |
+| `Resources/appintents-protocols.json` | Protocol list the const-value extractor gathers. |
 | `Resources/Info.plist` | Bundle metadata, the `NSServices` entry, document types. |
 | `scripts/make-quick-action.sh` | Generates both Automator `.workflow` bundles as plain plist XML. |
 | `scripts/lib.sh` | Removing earlier installs and pruning their services preferences. |
@@ -90,6 +92,15 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
   1.2 MB iPhone HEIC needs about q60 to match its own size, so at 0.60 the rule sat exactly
   on the edge — the smoke test flickered between q60 fitting and not fitting, which looked
   like an engine bug and was not.
+- **The Shortcuts action needs two build steps, not just a source file.** `swiftc` must run
+  with `-wmo` (without it `-emit-const-values-path` silently produces nothing) and with
+  `-const-gather-protocols-file Resources/appintents-protocols.json`; then
+  `appintentsmetadataprocessor` turns that into `Contents/Resources/Metadata.appintents`.
+  `scripts/build.sh` does both and skips gracefully when the processor is missing. Check the
+  result with `python3 -c "import json;print(json.load(open('…/extract.actionsdata'))['actions'])"`.
+- **App Intents parameter APIs are version-gated**: `supportedContentTypes` on an array
+  parameter is macOS 15+, so with a 13.0 target the images parameter takes any file and the
+  engine filters.
 - **`log show` is unavailable in some agent shells**, which is why the app keeps its own
   trail at `~/Library/Logs/ImageShrink.log`. Use that to verify a Quick Action run.
 - GUI verification from an agent session is limited: `screencapture` needs Screen Recording

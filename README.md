@@ -43,6 +43,10 @@ Settings → Keyboard → Keyboard Shortcuts → Services, or edit `SHORTCUT` in
 **By hand** — open the app from `~/Applications` and drag files onto the window, or use
 Add Files.
 
+**From Shortcuts** — the app publishes a **Convert Images to JPEG** action, with the images,
+the megabyte limit and an optional longest side as parameters. It returns the converted files,
+so it can feed the next step of a shortcut.
+
 **From the terminal**
 
 ```bash
