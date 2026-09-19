@@ -109,6 +109,10 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
   clipped and has to be scrolled by a few pixels. `.frame(width:)` plus
   `.fixedSize(horizontal: false, vertical: true)` makes it report its real height; the
   popover then sizes itself, and the Settings window takes `hosting.fittingSize`.
+- **`toolbar(_:itemForItemIdentifier:willBeInsertedIntoToolbar:)` runs more than once** — the
+  customisation palette asks for items too. Holding on to a button created there gives you
+  one that may never enter the window, and a popover anchored to it floats away from the
+  window entirely. Anchor to the `sender`, or look the item up in `window.toolbar?.items`.
 - **On macOS a `TextField`'s first argument is a label, not a placeholder.** It renders
   beside the field and wraps. Placeholders go in `prompt:`, with `.labelsHidden()`.
 - **App Intents parameter APIs are version-gated**: `supportedContentTypes` on an array

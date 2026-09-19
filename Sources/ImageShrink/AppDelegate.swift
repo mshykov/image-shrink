@@ -7,7 +7,6 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var window: NSWindow?
     private var settingsWindow: NSWindow?
     private var settingsPopover: NSPopover?
-    private var settingsButton: NSButton?
     private var menuBar: MenuBarController?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
@@ -107,7 +106,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func toggleSettingsPopover(_ sender: Any?) {
-        guard let anchor = settingsButton else { return }
+        // Anchor to the button that was actually clicked. `itemForItemIdentifier` runs more
+        // than once — the customisation palette asks for items too — so a button stored at
+        // creation time can be one that never entered the window, and the popover then hangs
+        // off nothing, above the titlebar.
+        let anchor = (sender as? NSView)
+            ?? window?.toolbar?.items
+                .first { $0.itemIdentifier == Self.settingsItem }?.view
+        guard let anchor, anchor.window != nil else { return }
         if let popover = settingsPopover, popover.isShown {
             popover.performClose(sender)
             return
@@ -217,7 +223,6 @@ extension AppDelegate: NSToolbarDelegate {
             button.image = NSImage(systemSymbolName: "slider.horizontal.3",
                                    accessibilityDescription: "Settings")
             button.action = #selector(toggleSettingsPopover(_:))
-            settingsButton = button
             item.label = "Settings"
             item.toolTip = "All settings"
         default:

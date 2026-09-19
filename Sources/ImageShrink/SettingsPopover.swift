@@ -79,7 +79,7 @@ struct SettingsPopover: View {
             }
         }
         .padding(Theme.wide)
-        .frame(width: 380)
+        .frame(width: 340)
         .fixedSize(horizontal: false, vertical: true)
     }
 
