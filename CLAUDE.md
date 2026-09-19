@@ -28,6 +28,9 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 | `Sources/ImageShrink/NameReserver.swift` | Hands out output names to the parallel workers. |
 | `Sources/ImageShrink/AppModel.swift` | Window state, settings persistence, the parallel run. |
 | `Sources/ImageShrink/ContentView.swift` | The SwiftUI window, hosted in an AppKit `NSWindow`. |
+| `Sources/ImageShrink/Theme.swift` | The design system: layers, colours, type, geometry. |
+| `Sources/ImageShrink/Estimator.swift` | Size-versus-quality curves, so rows can predict the result. |
+| `Sources/ImageShrink/SettingsPopover.swift` | The popover behind the toolbar's slider button. |
 | `Sources/ImageShrink/CLI.swift` | `--cli` headless mode, `--selftest` (drives `AppModel` without a window) and `--snapshot` (renders the window to a PNG). |
 | `Sources/ImageShrink/Glass.swift` | Liquid Glass helpers with pre-26 fallbacks, window chrome, window material. |
 | `Sources/ImageShrink/Thumbnail.swift` | Card previews, decoded off the main thread. |
@@ -121,32 +124,42 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 
 ## Design
 
-The window is built around the pictures, not around a settings form — that was the first
-version's mistake, and it read as flat because the content was four sections of controls of
-equal weight with the images as a side note.
+The window follows the Claude Design prototype in `docs/prototype/` — a list, not a grid,
+with the numbers doing the talking.
 
-- **The grid is the window.** Square thumbnail cards carry the filename, the before → after
-  sizes and a bar showing how much of the original is left. Each card updates the moment its
-  own file lands, which is why `AppModel.Item` holds its own `FileResult` instead of a
-  separate results array.
-- **Chrome top and bottom.** The top bar holds the size presets and the settings popover (or,
-  once a run finishes, the savings summary). The bottom bar is Liquid Glass floating over the
-  pictures — which is the point: glass over photos reads the way Tahoe intends, glass over a
-  form reads as nothing.
-- Everything else lives in the popover behind the slider icon. Settings are one click away
-  rather than filling the window.
-- Glass stays behind `if #available(macOS 26.0, *)` in `Glass.swift` with a `.regularMaterial`
-  fallback; deployment target stays 13.0.
-- The icon is a superellipse (n≈5), matching Apple's icon grid rather than a circular-corner
-  rounded rect, with a single specular highlight. `tools/make-icon.swift` draws it.
+- **Every row carries its own estimate.** Before anything is converted each file shows
+  `2,5 MB → ~1,9 MB`, the quality it will land at, and a bar for how much survives. This is
+  the feature the layout exists for, and it is why `Estimator` exists.
+- **Three states, one list.** Idle shows estimates; converting shows the live stage per row
+  ("Searching for the largest quality that fits 2 MB — pass 3 of 6") with the settings locked;
+  finished turns the header green and swaps the footer for Undo / Show in Finder.
+- **`Theme.swift` holds the system**: three glass layers (L1 window, L2 flat content panel,
+  L3 floating popover — glass never sits on glass), one accent, five text sizes, radii
+  16 → 14 → 12 → 8, spacing 6 · 10 · 12 · 16 · 24. Colours: accent for the chosen limit and
+  the primary button, green only on numbers that went down, orange for a file that could not
+  reach the limit, red only for moving originals to Trash.
+- **No disabled primary button**: with an empty queue there is no footer at all.
+- Numbers use `.tabularNumbers()` so they stop jittering as estimates update.
+
+### Estimates
+
+`Estimator` measures a real size-versus-quality curve per file: four full-size encodes,
+0.1–0.6 s, then `log(bytes)` is interpolated linearly in quality to answer "what fits 2 MB?"
+instantly. Changing the limit is interpolation; changing the resolution invalidates the curves
+and re-measures in the background.
+
+A downscaled proxy was tried first and is not usable: measured against the truth it lands
+between 0.42× and 1.39× depending on how smooth the picture is. The estimator mirrors the
+converter's rules — the skip path, the no-inflation ceiling and both quality floors — so the
+preview and the result agree; measured within a few per cent on the test images.
 
 ### Looking at the layout without Screen Recording
 
 `--snapshot` renders the window offscreen, but **a scroll view's content never appears**: an
-offscreen window gets no display cycle, so the cards are never drawn. A solid colour in the
-grid's place renders fine, which is how that was pinned down — blank *content* is the capture,
-not a bug. `scripts/design-probe.sh` works around it by building a copy whose grid has no
-scroll view, and renders the before and after states. Glass and materials still come out
+offscreen window gets no display cycle, so the rows are never drawn. A solid colour in the
+list's place renders fine, which is how that was pinned down — blank *content* is the capture,
+not a bug. `scripts/design-probe.sh` works around it by building a copy whose list does not
+scroll, and renders the idle, finished and popover states. Glass and materials still come out
 invisible in any capture, so judge layout and typography there, never the finish.
 
 ## Never inflate
@@ -154,7 +167,7 @@ invisible in any capture, so judge layout and typography there, never the finish
 `encodeToTarget` aims at `min(limit, originalBytes)`, not at the limit. Without that, a
 1.2 MB HEIC converted with a 2 MB limit comes out at 2.0 MB — measured on a real iPhone
 photo, quality 84 — because JPEG needs roughly twice the bytes of HEIC for the same picture.
-The no-inflation goal has its own quality floor (`noInflationFloor`, 0.60), higher than the
+The no-inflation goal has its own quality floor (`noInflationFloor`, 0.50), higher than the
 hard floor, so matching the original's size never costs more than it is worth; when 0.60 is
 not enough the hard limit takes over and the file is allowed to grow. Same photo after the
 rule: 1.2 MB at quality 61. `scripts/smoke-test.sh` asserts it with an 8 MB limit on a

@@ -57,6 +57,7 @@ struct FileResult: Identifiable, Sendable {
     var newBytes: Int?
     var quality: Double?
     var pixelSize: CGSize?
+    var trashedOriginal: URL?
     var status: Status
 
     var isFailure: Bool { if case .failed = status { return true }; return false }
@@ -64,8 +65,17 @@ struct FileResult: Identifiable, Sendable {
 
 enum Converter {
 
-    static func convert(url: URL, settings: ConversionSettings,
-                        reserver: NameReserver) -> FileResult {
+    /// What the file is going through, for the row to say so while it happens.
+    enum Stage: Sendable, Equatable {
+        case reading
+        case searching(pass: Int, of: Int)
+        case resizing
+        case writing
+    }
+
+    static func convert(url: URL, settings: ConversionSettings, reserver: NameReserver,
+                        onStage: (@Sendable (Stage) -> Void)? = nil) -> FileResult {
+        onStage?(.reading)
         let originalBytes = byteSize(of: url)
         var result = FileResult(source: url, originalBytes: originalBytes, status: .converted)
 
@@ -91,7 +101,7 @@ enum Converter {
 
             guard let encoded = encodeToTarget(source: source, properties: properties,
                                                fullSize: fullSize, originalBytes: originalBytes,
-                                               settings: settings) else {
+                                               settings: settings, onStage: onStage) else {
                 result.status = .failed("could not compress under the limit")
                 return result
             }
@@ -99,7 +109,11 @@ enum Converter {
             let output = outputURL(for: url, in: directory, bytes: encoded.data.count,
                                    settings: settings, reserver: reserver)
 
-            try write(encoded.data, to: output, replacing: url, settings: settings)
+            onStage?(.writing)
+            var trashed: URL?
+            try write(encoded.data, to: output, replacing: url, settings: settings,
+                      trashedOriginal: &trashed)
+            result.trashedOriginal = trashed
 
             result.output = output
             result.newBytes = encoded.data.count
@@ -123,7 +137,8 @@ enum Converter {
     /// Drops quality first, then resolution, until the file fits the target.
     private static func encodeToTarget(source: CGImageSource, properties: [CFString: Any],
                                        fullSize: CGSize, originalBytes: Int,
-                                       settings: ConversionSettings) -> Encoded? {
+                                       settings: ConversionSettings,
+                                       onStage: (@Sendable (Stage) -> Void)? = nil) -> Encoded? {
         let outputProperties = self.outputProperties(from: properties, strip: settings.stripMetadata)
         var maxPixel = Int(max(fullSize.width, fullSize.height).rounded())
         if let limit = settings.maxDimension { maxPixel = min(maxPixel, limit) }
@@ -142,14 +157,17 @@ enum Converter {
 
             if noInflation < settings.targetBytes,
                let hit = searchQuality(flat, properties: outputProperties,
-                                       target: noInflation, minQuality: noInflationFloor) {
+                                       target: noInflation, minQuality: noInflationFloor,
+                                       onStage: onStage) {
                 return Encoded(data: hit.0, quality: hit.1, pixels: pixels)
             }
             if let hit = searchQuality(flat, properties: outputProperties,
-                                       target: settings.targetBytes, minQuality: settings.minQuality) {
+                                       target: settings.targetBytes, minQuality: settings.minQuality,
+                                       onStage: onStage) {
                 return Encoded(data: hit.0, quality: hit.1, pixels: pixels)
             }
             // Even the lowest quality overshoots: remember it and shrink the pixels.
+            onStage?(.resizing)
             if let floorData = encode(flat, quality: settings.minQuality, properties: outputProperties) {
                 fallback = Encoded(data: floorData, quality: settings.minQuality, pixels: pixels)
                 let ratio = Double(settings.targetBytes) / Double(floorData.count)
@@ -169,18 +187,30 @@ enum Converter {
     private static let noInflationFloor = 0.50
 
     /// Binary search for the highest quality that still fits.
+    private static let searchPasses = 8
+
     private static func searchQuality(_ image: CGImage, properties: [CFString: Any],
-                                      target: Int, minQuality: Double) -> (Data, Double)? {
+                                      target: Int, minQuality: Double,
+                                      onStage: (@Sendable (Stage) -> Void)? = nil) -> (Data, Double)? {
+        var pass = 0
+        func announce() {
+            pass += 1
+            onStage?(.searching(pass: min(pass, searchPasses), of: searchPasses))
+        }
+
         var high = 0.92
+        announce()
         if let data = encode(image, quality: high, properties: properties), data.count <= target {
             return (data, high)
         }
         var low = minQuality
+        announce()
         guard let floorData = encode(image, quality: low, properties: properties),
               floorData.count <= target else { return nil }
 
         var best = (floorData, low)
         for _ in 0..<6 {
+            announce()
             let mid = (low + high) / 2
             guard let data = encode(image, quality: mid, properties: properties) else { break }
             if data.count <= target {
@@ -313,8 +343,10 @@ enum Converter {
         return extension_.isEmpty ? "image" : extension_
     }
 
+    /// Where the original ended up in the Trash, so Undo can put it back.
     private static func write(_ data: Data, to output: URL, replacing source: URL,
-                              settings: ConversionSettings) throws {
+                              settings: ConversionSettings,
+                              trashedOriginal: inout URL?) throws {
         let manager = FileManager.default
         let dates = settings.keepDates ? fileDates(of: source) : nil
 

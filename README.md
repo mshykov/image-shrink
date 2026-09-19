@@ -79,11 +79,12 @@ the installer all read it, so adding one there adds its Finder action on the nex
 
 ## Design
 
-The window is a grid of the pictures themselves. Each card shows the file, and after a run
-its before → after sizes with a bar for how much is left; the header turns into a savings
-summary (“Saved 19,1 MB · 76% smaller”). The size presets and a settings popover sit in the
-top bar, and the actions float in a Liquid Glass bar over the photos. On macOS 13–15 the
-glass falls back to a standard material, so the app still looks native there.
+The window is a list, and every row answers the question you actually have: **what will this
+file weigh?** Before you convert anything each row already reads `2,5 MB → ~1,9 MB · quality
+78 %`, or `already under the limit`, and the numbers re-estimate the moment you change the
+limit. While it runs each row says what it is doing ("Searching for the largest quality that
+fits 2 MB — pass 3 of 6"); when it finishes the header turns green and the footer offers
+**Undo**, which puts the new files in the Trash and brings the originals back.
 
 ## What the settings do
 

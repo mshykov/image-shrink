@@ -6,6 +6,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     private let model = AppModel()
     private var window: NSWindow?
     private var settingsWindow: NSWindow?
+    private var settingsPopover: NSPopover?
+    private var settingsButton: NSButton?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
@@ -36,6 +38,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             window.title = "Image Shrink"
             window.applyGlassChrome()
             window.contentView = hosting
+            attachToolbar(to: window)
             window.isReleasedWhenClosed = false
             window.center()
             window.setFrameAutosaveName("main")
@@ -77,6 +80,29 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     @objc func showHelp(_ sender: Any?) {
         guard let readme = Bundle.main.url(forResource: "README", withExtension: "md") else { return }
         NSWorkspace.shared.open(readme)
+    }
+
+    /// The two round buttons the design puts in the titlebar: add files, and settings.
+    private func attachToolbar(to window: NSWindow) {
+        let toolbar = NSToolbar(identifier: "main")
+        toolbar.delegate = self
+        toolbar.displayMode = .iconOnly
+        window.toolbar = toolbar
+        window.toolbarStyle = .unified
+    }
+
+    @objc func toggleSettingsPopover(_ sender: Any?) {
+        guard let anchor = settingsButton else { return }
+        if let popover = settingsPopover, popover.isShown {
+            popover.performClose(sender)
+            return
+        }
+        let popover = NSPopover()
+        popover.behavior = .transient
+        popover.contentViewController = NSHostingController(
+            rootView: SettingsPopover().environmentObject(model))
+        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
+        settingsPopover = popover
     }
 
     private func buildMenu() {
@@ -142,5 +168,48 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.helpMenu = helpMenu
 
         NSApp.mainMenu = main
+    }
+}
+
+
+extension AppDelegate: NSToolbarDelegate {
+    static let addItem = NSToolbarItem.Identifier("dev.shykov.imageshrink.add")
+    static let settingsItem = NSToolbarItem.Identifier("dev.shykov.imageshrink.settings")
+
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        [.flexibleSpace, Self.addItem, Self.settingsItem]
+    }
+
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        toolbarDefaultItemIdentifiers(toolbar)
+    }
+
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier identifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        let item = NSToolbarItem(itemIdentifier: identifier)
+        // A real button as the item view, so the popover has something to point at.
+        let button = NSButton(frame: NSRect(x: 0, y: 0, width: 32, height: 26))
+        button.bezelStyle = .texturedRounded
+        button.target = self
+
+        switch identifier {
+        case Self.addItem:
+            button.image = NSImage(systemSymbolName: "plus", accessibilityDescription: "Add images")
+            button.action = #selector(openFiles(_:))
+            item.label = "Add Images"
+            item.toolTip = "Add images"
+        case Self.settingsItem:
+            button.image = NSImage(systemSymbolName: "slider.horizontal.3",
+                                   accessibilityDescription: "Settings")
+            button.action = #selector(toggleSettingsPopover(_:))
+            settingsButton = button
+            item.label = "Settings"
+            item.toolTip = "All settings"
+        default:
+            return nil
+        }
+
+        item.view = button
+        return item
     }
 }

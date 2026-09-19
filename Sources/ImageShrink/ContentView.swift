@@ -11,24 +11,40 @@ struct ContentView: View {
         ZStack {
             WindowBackground().ignoresSafeArea()
 
-            if model.items.isEmpty {
-                EmptyState()
-            } else {
-                PhotoGrid()
+            VStack(spacing: 0) {
+                TopBar()
+                    .padding(.horizontal, Theme.wide)
+                    .padding(.top, Theme.snug)
+                    .padding(.bottom, Theme.normal)
+
+                Group {
+                    if model.items.isEmpty {
+                        EmptyState()
+                    } else {
+                        FileList()
+                    }
+                }
+                .padding(.horizontal, Theme.wide)
+
+                // No disabled primary button: with an empty queue there is no footer at all.
+                if !model.items.isEmpty {
+                    Footer()
+                        .padding(.horizontal, Theme.wide)
+                        .padding(.vertical, Theme.normal)
+                }
             }
+            .padding(.bottom, model.items.isEmpty ? Theme.wide : 0)
         }
-        .frame(minWidth: 560, minHeight: 540)
-        .safeAreaInset(edge: .top, spacing: 0) { TopBar() }
-        .safeAreaInset(edge: .bottom, spacing: 0) { ActionBar() }
+        .frame(minWidth: 680, minHeight: 520)
         .onDrop(of: [.fileURL], isTargeted: $isTargeted) { providers in
             load(providers)
             return true
         }
         .overlay {
             if isTargeted {
-                RoundedRectangle(cornerRadius: 18)
+                RoundedRectangle(cornerRadius: Theme.windowRadius, style: .continuous)
                     .strokeBorder(Color.accentColor, lineWidth: 3)
-                    .padding(6)
+                    .padding(4)
                     .allowsHitTesting(false)
             }
         }
@@ -46,172 +62,387 @@ struct ContentView: View {
     }
 }
 
-// MARK: - The pictures, which are the point of the window
+// MARK: - Top bar
 
-struct PhotoGrid: View {
+struct TopBar: View {
     @EnvironmentObject var model: AppModel
-    @Environment(\.accessibilityReduceMotion) private var reduceMotion
-
-    private let columns = [GridItem(.adaptive(minimum: 132, maximum: 190), spacing: 16)]
 
     var body: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 18) {
-                ForEach(model.items) { item in
-                    PhotoCard(item: item)
-                }
+        HStack(spacing: Theme.normal) {
+            LimitPicker()
+
+            if model.isCustomLimit && !model.isRunning {
+                LimitField()
             }
-            .padding(.horizontal, 18)
-            .padding(.vertical, 16)
-            .animation(reduceMotion ? nil : .snappy(duration: 0.25), value: model.items.count)
+
+            Spacer(minLength: Theme.normal)
+
+            if model.isRunning {
+                Text("Settings are locked while converting")
+                    .font(Theme.control)
+                    .foregroundStyle(.tertiary)
+            } else {
+                Label(model.destinationSummary, systemImage: "folder")
+                    .font(Theme.control)
+                    .foregroundStyle(.secondary)
+                    .labelStyle(.titleAndIcon)
+            }
         }
-        .scrollContentBackground(.hidden)
+        .disabled(model.isRunning)
+        .opacity(model.isRunning ? 0.5 : 1)
     }
 }
 
-struct PhotoCard: View {
-    let item: AppModel.Item
+/// The one accent on the screen, alongside the primary button.
+struct LimitPicker: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Namespace private var pill
+
+    private let choices: [(label: String, value: Double)] = [
+        ("500 KB", 0.5), ("1 MB", 1), ("2 MB", 2), ("5 MB", 5),
+    ]
+
+    var body: some View {
+        HStack(spacing: 2) {
+            ForEach(choices, id: \.value) { choice in
+                button(choice.label, selected: model.isPreset(choice.value)) {
+                    model.targetMB = choice.value
+                }
+            }
+            button("Custom", selected: model.isCustomLimit) {
+                if !model.isCustomLimit { model.targetMB = 2.5 }
+            }
+        }
+        .padding(3)
+        .background(Capsule().fill(Color.primary.opacity(0.07)))
+    }
+
+    private func button(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
+        Button(action: action) {
+            Text(label)
+                .font(Theme.control)
+                .tabularNumbers()
+                .foregroundStyle(selected ? Color.white : Color.primary)
+                .padding(.horizontal, Theme.normal)
+                .padding(.vertical, Theme.tight)
+                .background {
+                    if selected {
+                        Capsule()
+                            .fill(Color.accentColor)
+                            .matchedGeometryEffect(id: "limit", in: pill)
+                    }
+                }
+        }
+        .buttonStyle(.plain)
+        .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: model.targetMB)
+        .accessibilityLabel("Limit \(label)")
+        .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+}
+
+struct LimitField: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        HStack(spacing: Theme.tight) {
+            Text("Limit").font(Theme.control).foregroundStyle(.secondary)
+            TextField("Limit", value: $model.targetMB,
+                      format: .number.precision(.fractionLength(0...2)))
+                .labelsHidden()
+                .textFieldStyle(.roundedBorder)
+                .multilineTextAlignment(.trailing)
+                .frame(width: 52)
+                .tabularNumbers()
+            Text("MB").font(Theme.control).foregroundStyle(.secondary)
+            Stepper("Limit", value: $model.targetMB, in: 0.1...50, step: 0.5).labelsHidden()
+        }
+        .padding(.horizontal, Theme.snug)
+        .padding(.vertical, 3)
+        .background(Capsule().fill(Color.primary.opacity(0.07)))
+    }
+}
+
+// MARK: - The list
+
+struct FileList: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        VStack(spacing: 0) {
+            header
+            Divider().opacity(0.5)
+            ScrollView {
+                LazyVStack(spacing: 0) {
+                    ForEach(Array(model.items.enumerated()), id: \.element.id) { index, item in
+                        FileRow(item: item, alternate: index.isMultiple(of: 2) == false)
+                        if item.id != model.items.last?.id {
+                            Divider().opacity(0.35).padding(.leading, 64)
+                        }
+                    }
+                }
+            }
+            .scrollContentBackground(.hidden)
+        }
+        .contentPanel()
+    }
+
+    private var header: some View {
+        HStack {
+            if model.isFinished {
+                Label("\(model.done) images converted", systemImage: "checkmark")
+                    .font(Theme.control)
+                    .foregroundStyle(Theme.saved)
+            } else {
+                Text("^[\(model.items.count) image](inflect: true)")
+                    .font(Theme.control)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            Text(hint)
+                .font(Theme.meta)
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.horizontal, Theme.wide)
+        .padding(.vertical, Theme.snug)
+        .background(model.isFinished ? Theme.saved.opacity(0.10) : Color.clear)
+    }
+
+    private var hint: String {
+        if model.isRunning { return "Originals stay untouched until every file is written" }
+        if model.isFinished {
+            return model.replaceOriginals
+                ? "Originals moved to Trash"
+                : "Originals kept \u{00B7} nothing was moved to Trash"
+        }
+        return model.isEstimating ? "Estimating\u{2026}" : "Estimates update as you change the limit"
+    }
+}
+
+struct FileRow: View {
+    let item: AppModel.Item
+    let alternate: Bool
+    @EnvironmentObject var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var thumbnail: NSImage?
     @State private var hovering = false
 
-    private var shape: RoundedRectangle { RoundedRectangle(cornerRadius: 12, style: .continuous) }
-
-    private var spokenDescription: String {
-        let name = item.result?.output?.lastPathComponent ?? item.url.lastPathComponent
-        switch item.result?.status {
-        case .converted:
-            return "\(name), \(Format.bytes(item.bytes)) became "
-                 + "\(Format.bytes(item.result?.newBytes ?? 0))"
-        case .skipped(let reason):
-            return "\(name), \(Format.bytes(item.bytes)), \(reason)"
-        case .failed(let reason):
-            return "\(name), failed: \(reason)"
-        case nil:
-            return "\(name), \(Format.bytes(item.bytes)), waiting"
-        }
-    }
-
     var body: some View {
-        VStack(alignment: .leading, spacing: 7) {
-            ZStack(alignment: .topTrailing) {
-                preview
-                if hovering && !model.isRunning && item.result == nil {
-                    removeButton
-                }
+        HStack(spacing: Theme.normal) {
+            icon
+            VStack(alignment: .leading, spacing: 2) {
+                Text(title)
+                    .font(Theme.rowTitle)
+                    .lineLimit(1)
+                    .truncationMode(.middle)
+                Text(subtitle)
+                    .font(Theme.meta)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
             }
-            caption
+            Spacer(minLength: Theme.normal)
+            trailing
+        }
+        .padding(.horizontal, Theme.wide)
+        .padding(.vertical, Theme.snug)
+        .background(rowBackground)
+        .overlay(alignment: .bottom) {
+            if isWorking {
+                ProgressView(value: passFraction)
+                    .progressViewStyle(.linear)
+                    .frame(height: 2)
+                    .tint(Color.accentColor)
+            }
         }
         .onHover { hovering = $0 }
-        .task(id: item.url) { thumbnail = await Thumbnail.load(item.url, size: 420) }
+        .task(id: item.url) { thumbnail = await Thumbnail.load(item.url, size: 120) }
         .accessibilityElement(children: .combine)
-        .accessibilityLabel(spokenDescription)
+        .accessibilityLabel("\(title). \(subtitle)")
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: item.isDone)
     }
 
-    private var preview: some View {
-        Color.clear
-            .aspectRatio(1, contentMode: .fit)
-            .overlay {
-                if let thumbnail {
-                    Image(nsImage: thumbnail)
-                        .resizable()
-                        .scaledToFill()
-                } else {
-                    Rectangle().fill(.quaternary)
-                }
-            }
-            .clipShape(shape)
-        .overlay { shape.strokeBorder(.separator, lineWidth: 0.5) }
-        .overlay(alignment: .bottomTrailing) { badge }
-        .overlay {
-            if isWorking {
-                ZStack {
-                    shape.fill(.black.opacity(0.35))
-                    ProgressView().controlSize(.small).tint(.white)
-                }
+    private var icon: some View {
+        let shape = RoundedRectangle(cornerRadius: Theme.fieldRadius, style: .continuous)
+        return Group {
+            if let thumbnail {
+                Image(nsImage: thumbnail).resizable().scaledToFill()
+            } else {
+                shape.fill(Color.primary.opacity(0.07))
+                    .overlay {
+                        Image(systemName: "photo")
+                            .font(.system(size: 14))
+                            .foregroundStyle(.tertiary)
+                    }
             }
         }
-        .shadow(color: .black.opacity(0.18), radius: 5, y: 2)
+        .frame(width: 40, height: 40)
+        .clipShape(shape)
+        .overlay { shape.strokeBorder(Color.primary.opacity(0.08), lineWidth: 0.5) }
     }
 
-    private var isWorking: Bool { model.isRunning && item.result == nil }
+    private var isWorking: Bool { item.stage != nil }
+
+    private var passFraction: Double {
+        guard case .searching(let pass, let total)? = item.stage else { return 0.15 }
+        return Double(pass) / Double(total)
+    }
+
+    private var title: String {
+        item.result?.output?.lastPathComponent ?? item.url.lastPathComponent
+    }
+
+    private var subtitle: String {
+        if let stage = item.stage {
+            switch stage {
+            case .reading: return "Reading"
+            case .searching(let pass, let total):
+                return "Searching for the largest quality that fits "
+                     + "\(Format.bytes(model.targetBytes)) \u{2014} pass \(pass) of \(total)"
+            case .resizing: return "Too big at every quality \u{2014} reducing the pixels"
+            case .writing: return "Writing"
+            }
+        }
+        if model.isRunning && !item.isDone { return "Waiting" }
+
+        if let result = item.result {
+            switch result.status {
+            case .converted:
+                var parts = ["from \(item.url.lastPathComponent)"]
+                if let saved = result.newBytes.map({ item.bytes - $0 }), saved > 0 {
+                    parts.append("saved \(Format.bytes(saved))")
+                }
+                if let quality = result.quality { parts.append("quality \(Int(quality * 100)) %") }
+                return parts.joined(separator: " \u{00B7} ")
+            case .skipped(let reason): return reason
+            case .failed(let reason): return reason
+            }
+        }
+
+        var parts: [String] = []
+        if let pixels = item.pixels { parts.append(Format.pixels(pixels)) }
+        parts.append(item.format)
+        switch item.estimate?.outcome {
+        case .untouched: parts.append("already under the limit")
+        case .reencoded(let quality): parts.append("quality \(Int(quality * 100)) %")
+        case .resized: parts.append("resized to fit")
+        case nil: parts.append(model.isEstimating ? "estimating\u{2026}" : "")
+        }
+        return parts.filter { !$0.isEmpty }.joined(separator: " \u{00B7} ")
+    }
 
     @ViewBuilder
-    private var badge: some View {
-        if let status = item.result?.status {
-            let icon: (String, Color) = {
-                switch status {
-                case .converted: return ("checkmark.circle.fill", .green)
-                case .skipped: return ("minus.circle.fill", .secondary)
-                case .failed: return ("exclamationmark.triangle.fill", .orange)
+    private var trailing: some View {
+        if let result = item.result {
+            HStack(spacing: Theme.snug) {
+                if hovering, result.output != nil {
+                    Button("Show") { reveal(result.output) }
+                        .buttonStyle(SecondaryButton(compact: true))
                 }
-            }()
-            Image(systemName: icon.0)
-                .font(.system(size: 17))
-                .foregroundStyle(.white, icon.1)
-                .padding(7)
-                .transition(.scale.combined(with: .opacity))
+                Text(Format.bytes(result.newBytes ?? item.bytes))
+                    .font(Theme.rowTitle)
+                    .tabularNumbers()
+                Image(systemName: statusIcon)
+                    .font(.system(size: 16))
+                    .foregroundStyle(.white, statusTint)
+            }
+        } else {
+            HStack(spacing: Theme.snug) {
+                VStack(alignment: .trailing, spacing: 4) {
+                    HStack(spacing: Theme.tight) {
+                        Text(Format.bytes(item.bytes))
+                            .foregroundStyle(.secondary)
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 9))
+                            .foregroundStyle(.tertiary)
+                        Text(estimateLabel)
+                            .fontWeight(.semibold)
+                            .foregroundStyle(shrinks ? Theme.saved : .primary)
+                    }
+                    .font(Theme.meta)
+                    .tabularNumbers()
+
+                    SizeBar(fraction: fraction, shrinks: shrinks)
+                        .frame(width: 118)
+                }
+                if hovering && !model.isRunning {
+                    Button {
+                        model.remove(item)
+                    } label: {
+                        Image(systemName: "xmark.circle.fill")
+                            .font(.system(size: 15))
+                            .foregroundStyle(.secondary)
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel("Remove \(item.url.lastPathComponent)")
+                }
+            }
         }
     }
 
-    private var removeButton: some View {
-        Button { model.remove(item) } label: {
-            Image(systemName: "xmark.circle.fill")
-                .font(.system(size: 17))
-                .foregroundStyle(.white, .black.opacity(0.5))
+    private var estimateLabel: String {
+        guard let estimate = item.estimate else { return "\u{2026}" }
+        switch estimate.outcome {
+        case .untouched: return Format.bytes(estimate.bytes)
+        default: return "~\(Format.bytes(estimate.bytes))"
         }
-        .buttonStyle(.plain)
-        .padding(6)
-        .help("Remove from the list")
-        .accessibilityLabel("Remove \(item.url.lastPathComponent)")
     }
 
-    private var caption: some View {
-        VStack(alignment: .leading, spacing: 4) {
-            Text(item.result?.output?.lastPathComponent ?? item.url.lastPathComponent)
-                .font(.callout)
-                .lineLimit(1)
-                .truncationMode(.middle)
+    private var shrinks: Bool {
+        guard let estimate = item.estimate else { return false }
+        return estimate.bytes < item.bytes
+    }
 
-            HStack(spacing: 5) {
-                Text(Format.bytes(item.bytes))
-                    .foregroundStyle(.secondary)
-                if let new = item.result?.newBytes, new != item.bytes {
-                    Image(systemName: "arrow.right").font(.caption2).foregroundStyle(.tertiary)
-                    Text(Format.bytes(new))
-                        .foregroundStyle(new < item.bytes ? Color.green : Color.orange)
-                }
-            }
-            .font(.caption)
-            .monospacedDigit()
+    private var fraction: Double {
+        guard item.bytes > 0, let estimate = item.estimate else { return 0 }
+        return min(1, Double(estimate.bytes) / Double(item.bytes))
+    }
 
-            switch item.result?.status {
-            case .converted:
-                if let new = item.result?.newBytes, item.bytes > 0 {
-                    SizeBar(fraction: min(1, Double(new) / Double(item.bytes)))
-                }
-            case .skipped(let reason):
-                Text(reason).font(.caption).foregroundStyle(.secondary).lineLimit(1)
-            case .failed(let reason):
-                Text(reason).font(.caption).foregroundStyle(.orange).lineLimit(1)
-            case nil:
-                EmptyView()
-            }
+    private var statusIcon: String {
+        switch item.result?.status {
+        case .converted: return "checkmark.circle.fill"
+        case .skipped: return "minus.circle.fill"
+        case .failed: return "exclamationmark.circle.fill"
+        case nil: return "circle"
         }
+    }
+
+    private var statusTint: Color {
+        switch item.result?.status {
+        case .converted: return Theme.saved
+        case .skipped: return .secondary
+        case .failed: return Theme.attention
+        case nil: return .secondary
+        }
+    }
+
+    @ViewBuilder
+    private var rowBackground: some View {
+        if isWorking {
+            Color.accentColor.opacity(0.12)
+        } else if alternate {
+            Color.primary.opacity(0.025)
+        } else {
+            Color.clear
+        }
+    }
+
+    private func reveal(_ url: URL?) {
+        guard let url else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url])
     }
 }
 
-/// How much of the original is left, drawn rather than spelled out.
 struct SizeBar: View {
     let fraction: Double
+    var shrinks: Bool = true
 
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
-                Capsule().fill(.quaternary)
+                Capsule().fill(Color.primary.opacity(0.12))
                 Capsule()
-                    .fill(fraction <= 1 ? Color.green : Color.orange)
-                    .frame(width: max(3, geometry.size.width * fraction))
+                    .fill(shrinks ? Theme.saved : Color.secondary)
+                    .frame(width: max(2, geometry.size.width * fraction))
             }
         }
         .frame(height: 3)
@@ -219,331 +450,209 @@ struct SizeBar: View {
     }
 }
 
+// MARK: - Empty state
+
 struct EmptyState: View {
     @EnvironmentObject var model: AppModel
 
     var body: some View {
-        VStack(spacing: 12) {
-            Image(systemName: "photo.stack")
-                .font(.system(size: 44, weight: .thin))
-                .foregroundStyle(.tertiary)
-            Text("Drop images here")
-                .font(.title3.weight(.medium))
-            Text("HEIC, JPEG or PNG — they come out as JPEG under the limit you pick")
-                .font(.callout)
-                .foregroundStyle(.secondary)
-                .multilineTextAlignment(.center)
-        }
-        .frame(maxWidth: 380)
-        .padding(40)
-    }
-}
-
-// MARK: - Bars
-
-struct TopBar: View {
-    @EnvironmentObject var model: AppModel
-    @State private var showSettings = false
-
-    var body: some View {
-        HStack(spacing: 12) {
-            if model.isFinished {
-                summary
-            } else {
-                Picker("", selection: presetBinding) {
-                    Text("500 KB").tag(0.5)
-                    Text("1 MB").tag(1.0)
-                    Text("2 MB").tag(2.0)
-                    Text("5 MB").tag(5.0)
-                    Text(isPreset ? "Custom"
-                         : model.targetMB.formatted(.number.precision(.fractionLength(0...2))) + " MB")
-                        .tag(-1.0)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .fixedSize()
-                .disabled(model.isRunning)
-
-                Text(settingsLine)
-                    .font(.callout)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-            }
-
-            Spacer(minLength: 8)
-
-            Button {
-                showSettings = true
-            } label: {
-                Image(systemName: "slider.horizontal.3")
-            }
-            .help("All settings")
-            .accessibilityLabel("All settings")
-            .popover(isPresented: $showSettings, arrowEdge: .bottom) {
-                SettingsPopover().environmentObject(model)
-            }
-        }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 10)
-        .background(.ultraThinMaterial)
-        .overlay(alignment: .bottom) { Divider() }
-    }
-
-    private var summary: some View {
-        HStack(spacing: 10) {
-            VStack(alignment: .leading, spacing: 1) {
-                Text(model.savedBytes > 0 ? "Saved \(Format.bytes(model.savedBytes))" : "Done")
-                    .font(.headline)
-                Text("\(Format.bytes(model.convertedBytes)) → \(Format.bytes(model.producedBytes))"
-                     + (percent > 0 ? " · \(percent)% smaller" : ""))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .monospacedDigit()
-            }
-            if failures > 0 {
-                Label("\(failures) failed", systemImage: "exclamationmark.triangle.fill")
-                    .font(.caption)
-                    .foregroundStyle(.orange)
-            }
-        }
-    }
-
-    private var percent: Int {
-        guard model.convertedBytes > 0 else { return 0 }
-        return Int((Double(model.savedBytes) / Double(model.convertedBytes) * 100).rounded())
-    }
-
-    private var failures: Int { model.results.filter(\.isFailure).count }
-
-    private var settingsLine: String {
-        var parts: [String] = []
-        if model.maxDimension > 0 { parts.append("\(model.maxDimension) px") }
-        switch model.destinationMode {
-        case .sameFolder: break
-        case .subfolder: parts.append("Converted/")
-        case .custom: parts.append(model.customDestination?.lastPathComponent ?? "chosen folder")
-        }
-        if model.replaceOriginals { parts.append("originals to Trash") }
-        if model.stripMetadata { parts.append("no metadata") }
-        return parts.joined(separator: " · ")
-    }
-
-    private var isPreset: Bool {
-        [0.5, 1.0, 2.0, 5.0].contains { abs($0 - model.targetMB) < 0.001 }
-    }
-
-    /// −1 means the number in the field is not one of the presets.
-    private var presetBinding: Binding<Double> {
-        Binding {
-            [0.5, 1.0, 2.0, 5.0].first { abs($0 - model.targetMB) < 0.001 } ?? -1
-        } set: { value in
-            if value > 0 { model.targetMB = value }
-        }
-    }
-}
-
-struct ActionBar: View {
-    @EnvironmentObject var model: AppModel
-
-    var body: some View {
-        VStack(spacing: 8) {
-            GlassGroup(spacing: 14) {
-                HStack(spacing: 10) {
-                    Button("Add Files\u{2026}") { openPanel() }
-                        .glassButton()
-                    if !model.items.isEmpty && !model.isRunning {
-                        Button(model.isFinished ? "Clear" : "Remove All") { model.clear() }
-                            .glassButton()
-                    }
-
-                    Spacer(minLength: 12)
-
-                    if model.isRunning {
-                        ProgressView(value: Double(model.done), total: Double(max(1, model.items.count)))
-                            .progressViewStyle(.linear)
-                            .frame(width: 110)
-                        Text("\(model.done)/\(model.items.count)")
-                            .font(.callout)
-                            .monospacedDigit()
+        VStack(spacing: Theme.wide) {
+            Spacer()
+            VStack(spacing: Theme.normal) {
+                RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    .fill(Color.primary.opacity(0.07))
+                    .frame(width: 96, height: 96)
+                    .overlay {
+                        Image(systemName: "photo.on.rectangle.angled")
+                            .font(.system(size: 34, weight: .light))
                             .foregroundStyle(.secondary)
-                        Button("Stop") { model.cancel() }
-                            .glassButton()
-                            .keyboardShortcut(.cancelAction)
                     }
-
-                    if model.isFinished {
-                        Button("Show in Finder") { reveal() }
-                            .glassButton(prominent: true)
-                            .keyboardShortcut(.defaultAction)
-                            .disabled(model.results.allSatisfy { $0.output == nil })
-                    } else {
-                        Button(convertTitle) { model.convert() }
-                            .glassButton(prominent: true)
-                            .keyboardShortcut(.defaultAction)
-                            .disabled(model.pending.isEmpty || model.isRunning)
-                    }
-                }
+                Text("Drop images here").font(Theme.display)
+                Text("HEIC, JPEG and PNG come out as JPEG under \(Format.bytes(model.targetBytes)), "
+                     + (model.maxDimension > 0
+                        ? "at most \(model.maxDimension) px on the longest side."
+                        : "at their original dimensions."))
+                    .font(Theme.control)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 380)
+                Button("Choose Files\u{2026}") { openPanel(model) }
+                    .buttonStyle(PrimaryButton())
+                    .keyboardShortcut(.defaultAction)
             }
-            ShortcutHint()
+            Spacer()
+            ShortcutBanner()
         }
-        .padding(.horizontal, 18)
-        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+}
+
+/// The window is the exception, not the product — say so where it is unmissable.
+struct ShortcutBanner: View {
+    var body: some View {
+        HStack(spacing: Theme.normal) {
+            RoundedRectangle(cornerRadius: Theme.fieldRadius, style: .continuous)
+                .fill(Color.primary.opacity(0.07))
+                .frame(width: 34, height: 34)
+                .overlay { Image(systemName: "keyboard").foregroundStyle(.secondary) }
+
+            VStack(alignment: .leading, spacing: 3) {
+                Text("You don\u{2019}t need this window").font(Theme.rowTitle)
+                HStack(spacing: Theme.tight) {
+                    Text("Select images in Finder and press").font(Theme.meta).foregroundStyle(.secondary)
+                    KeyCap("\u{2303}")
+                    KeyCap("\u{2318}")
+                    KeyCap("J")
+                    Text("\u{2014} same settings, no window.").font(Theme.meta).foregroundStyle(.secondary)
+                }
+                .fixedSize()
+            }
+            Spacer(minLength: Theme.normal)
+            Button("Change shortcut") { openKeyboardSettings() }
+                .buttonStyle(SecondaryButton())
+        }
+        .padding(Theme.normal)
+        .contentPanel()
     }
 
-    private var convertTitle: String {
-        let count = model.pending.count
-        return count > 1 ? "Convert \(count) Images" : "Convert"
+    private func openKeyboardSettings() {
+        let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!
+        NSWorkspace.shared.open(url)
+    }
+}
+
+struct KeyCap: View {
+    let label: String
+    init(_ label: String) { self.label = label }
+
+    var body: some View {
+        Text(label)
+            .font(.system(size: 11, weight: .medium))
+            .frame(minWidth: 18)
+            .padding(.horizontal, 4)
+            .padding(.vertical, 2)
+            .background(RoundedRectangle(cornerRadius: 5, style: .continuous)
+                .fill(Color.primary.opacity(0.10)))
+    }
+}
+
+// MARK: - Footer
+
+struct Footer: View {
+    @EnvironmentObject var model: AppModel
+
+    var body: some View {
+        HStack(spacing: Theme.normal) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(headline).font(Theme.rowTitle).tabularNumbers()
+                Text(detail).font(Theme.meta).foregroundStyle(.secondary).tabularNumbers()
+            }
+            Spacer(minLength: Theme.wide)
+
+            if model.isRunning {
+                Button("Stop") { model.cancel() }
+                    .buttonStyle(SecondaryButton())
+                    .keyboardShortcut(.cancelAction)
+                ProgressBadge(fraction: Double(model.done) / Double(max(1, model.items.count)))
+            } else if model.isFinished {
+                if model.canUndo {
+                    Button("Undo") { model.undo() }
+                        .buttonStyle(SecondaryButton())
+                }
+                Button("Show in Finder") { revealAll() }
+                    .buttonStyle(PrimaryButton())
+                    .keyboardShortcut(.defaultAction)
+            } else {
+                Button("Clear") { model.clear() }
+                    .buttonStyle(SecondaryButton())
+                Button(model.pending.count > 1 ? "Convert \(model.pending.count) Images" : "Convert") {
+                    model.convert()
+                }
+                .buttonStyle(PrimaryButton())
+                .keyboardShortcut(.defaultAction)
+            }
+        }
     }
 
-    private func openPanel() {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
-        panel.allowedContentTypes = [.image]
-        if panel.runModal() == .OK { model.add(urls: panel.urls) }
+    private var headline: String {
+        if model.isRunning { return "Converting \(model.done + 1) of \(model.items.count)" }
+        if model.isFinished {
+            return "\(Format.bytes(model.convertedBytes)) \u{2192} \(Format.bytes(model.producedBytes))"
+        }
+        return "\(Format.bytes(model.totalBytes)) \u{2192} about \(Format.bytes(model.estimatedTotal))"
     }
 
-    private func reveal() {
+    private var detail: String {
+        if model.isRunning {
+            guard let seconds = model.remainingSeconds else { return "Working\u{2026}" }
+            return "About \(seconds) second\(seconds == 1 ? "" : "s") left"
+        }
+        if model.isFinished {
+            let failed = model.results.filter(\.isFailure).count
+            if failed > 0 { return "\(failed) could not reach the limit" }
+            return "\(Format.bytes(model.savedBytes)) saved \u{00B7} every file fits "
+                 + Format.bytes(model.targetBytes)
+        }
+        return model.plan
+    }
+
+    private func revealAll() {
         let urls = model.results.compactMap(\.output)
         guard !urls.isEmpty else { return }
         NSWorkspace.shared.activateFileViewerSelecting(urls)
     }
 }
 
-/// The instant Quick Action has no interface of its own, so this is where anyone
-/// finds out it exists.
-struct ShortcutHint: View {
+struct ProgressBadge: View {
+    let fraction: Double
+
     var body: some View {
-        HStack(spacing: 6) {
-            Image(systemName: "keyboard")
-            Text("In Finder: \u{2303}\u{2318}J converts the selection with these settings, "
-                 + "without opening this window")
+        ZStack(alignment: .leading) {
+            Capsule().fill(Color.primary.opacity(0.10))
+            Capsule().fill(Color.accentColor).frame(width: max(20, 160 * fraction))
+            Text("\(Int(fraction * 100)) %")
+                .font(Theme.control)
+                .tabularNumbers()
+                .foregroundStyle(.white)
+                .padding(.leading, Theme.normal)
         }
-        .font(.caption)
-        .foregroundStyle(.secondary)
-        .frame(maxWidth: .infinity, alignment: .leading)
+        .frame(width: 160, height: 28)
     }
 }
 
-// MARK: - Settings, one click away rather than filling the window
+// MARK: - Buttons
 
-struct SettingsPopover: View {
-    @EnvironmentObject var model: AppModel
-
-    var body: some View {
-        Form {
-            Section("Presets") {
-                HStack(spacing: 8) {
-                    ForEach(Preset.all) { preset in
-                        Button { apply(preset) } label: {
-                            VStack(spacing: 1) {
-                                Text(preset.name)
-                                Text(preset.detail)
-                                    .font(.caption2)
-                                    .foregroundStyle(.secondary)
-                            }
-                            .frame(maxWidth: .infinity)
-                            .padding(.vertical, 2)
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(isActive(preset) ? .accentColor : nil)
-                        .accessibilityLabel("\(preset.name) preset, \(preset.detail)")
-                    }
-                }
-            }
-
-            Section("Maximum file size") {
-                LabeledContent("Limit") {
-                    HStack(spacing: 6) {
-                        TextField("", value: $model.targetMB,
-                                  format: .number.precision(.fractionLength(0...2)))
-                            .textFieldStyle(.roundedBorder)
-                            .multilineTextAlignment(.trailing)
-                            .frame(width: 64)
-                        Text("MB").foregroundStyle(.secondary)
-                        Stepper("", value: $model.targetMB, in: 0.1...50, step: 0.5).labelsHidden()
-                    }
-                }
-            }
-
-            Section("Longest side") {
-                Picker("", selection: $model.maxDimension) {
-                    Text("Original").tag(0)
-                    Text("4096").tag(4096)
-                    Text("2560").tag(2560)
-                    Text("1920").tag(1920)
-                    Text("1280").tag(1280)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-            }
-
-            Section("Save to") {
-                Picker("", selection: $model.destinationMode) {
-                    Text("Same folder").tag(DestinationMode.sameFolder)
-                    Text("\u{201C}Converted\u{201D}").tag(DestinationMode.subfolder)
-                    Text("Chosen folder").tag(DestinationMode.custom)
-                }
-                .pickerStyle(.segmented)
-                .labelsHidden()
-                .onChange(of: model.destinationMode) { mode in
-                    if mode == .custom && model.customDestination == nil { chooseFolder() }
-                }
-
-                if model.destinationMode == .custom {
-                    LabeledContent("Folder") {
-                        HStack(spacing: 8) {
-                            Text(model.customDestination?.path ?? "Not chosen")
-                                .foregroundStyle(.secondary)
-                                .lineLimit(1)
-                                .truncationMode(.head)
-                            Button("Change\u{2026}") { chooseFolder() }.buttonStyle(.link)
-                        }
-                    }
-                }
-            }
-
-            Section {
-                Toggle("Skip files already under the limit", isOn: $model.skipSmallEnough)
-                Toggle("Keep original date created and modified", isOn: $model.keepDates)
-                Toggle("Remove metadata (EXIF, GPS)", isOn: $model.stripMetadata)
-                Toggle("Move originals to Trash after converting", isOn: $model.replaceOriginals)
-                // A long label squeezes the field until the placeholder spills outside it.
-                LabeledContent("Suffix") {
-                    // On macOS the first argument is a label, not a placeholder — it would
-                    // render next to the field. The placeholder is `prompt`.
-                    TextField("Suffix", text: $model.suffix, prompt: Text("automatic"))
-                        .labelsHidden()
-                        .textFieldStyle(.roundedBorder)
-                        .frame(width: 130)
-                }
-                Text("Empty names each file after its own size, like \u{2011}2MB.")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-        }
-        .formStyle(.grouped)
-        // A grouped Form is a scroll view: pinning a height clips it. fixedSize makes it
-        // report its real height, and the popover then sizes itself to the content.
-        .frame(width: 440)
-        .fixedSize(horizontal: false, vertical: true)
+struct PrimaryButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(Theme.action)
+            .foregroundStyle(.white)
+            .padding(.horizontal, Theme.wide)
+            .padding(.vertical, 7)
+            .background(Capsule().fill(Color.accentColor))
+            .opacity(configuration.isPressed ? 0.8 : 1)
     }
+}
 
-    private func apply(_ preset: Preset) {
-        model.targetMB = preset.targetMB
-        model.maxDimension = preset.maxDimension
-    }
+struct SecondaryButton: ButtonStyle {
+    var compact = false
 
-    private func isActive(_ preset: Preset) -> Bool {
-        abs(model.targetMB - preset.targetMB) < 0.001 && model.maxDimension == preset.maxDimension
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+            .font(compact ? Theme.meta : Theme.action)
+            .foregroundStyle(.primary)
+            .padding(.horizontal, compact ? Theme.snug : Theme.wide)
+            .padding(.vertical, compact ? 3 : 7)
+            .background(Capsule().fill(Color.primary.opacity(0.10)))
+            .opacity(configuration.isPressed ? 0.7 : 1)
     }
+}
 
-    private func chooseFolder() {
-        let panel = NSOpenPanel()
-        panel.canChooseFiles = false
-        panel.canChooseDirectories = true
-        panel.canCreateDirectories = true
-        panel.prompt = "Choose"
-        if panel.runModal() == .OK { model.customDestination = panel.url }
-    }
+@MainActor
+func openPanel(_ model: AppModel) {
+    let panel = NSOpenPanel()
+    panel.allowsMultipleSelection = true
+    panel.canChooseDirectories = false
+    panel.allowedContentTypes = [.image]
+    if panel.runModal() == .OK { model.add(urls: panel.urls) }
 }

@@ -6,39 +6,61 @@ import UniformTypeIdentifiers
 @MainActor
 final class AppModel: ObservableObject {
 
-    /// One row per picture, carrying its own result — the grid renders straight from this,
-    /// and each card updates the moment its own file is finished rather than at the end.
-    struct Item: Identifiable, Sendable {
+    /// One row. It carries its own estimate, its own live stage and its own result, so the
+    /// list can show each file's state the moment it changes.
+    struct Item: Identifiable {
         let id = UUID()
         let url: URL
         let bytes: Int
+        var curve: SizeCurve?
+        var estimate: Estimate?
+        var stage: Converter.Stage?
         var result: FileResult?
+
+        var pixels: CGSize? { result?.pixelSize ?? curve?.pixels }
+        var isDone: Bool { result != nil }
+        var format: String { url.pathExtension.uppercased() }
     }
 
     @Published var items: [Item] = []
     @Published var isRunning = false
+    @Published var isEstimating = false
 
-    private var cancellation: Cancellation?
-    private var runTotal = 0
-
-    // Settings — restored from the previous run so the sheet opens pre-filled.
-    @Published var targetMB: Double = Defaults.double("targetMB", 2)
-    @Published var maxDimension: Int = Defaults.int("maxDimension", 0)
+    // Conversion settings — changing one re-estimates every row in place.
+    @Published var targetMB: Double = Defaults.double("targetMB", 2) { didSet { reestimate() } }
+    @Published var maxDimension: Int = Defaults.int("maxDimension", 0) { didSet { estimateAll(force: true) } }
     @Published var destinationMode = Defaults.destinationMode()
     @Published var customDestination: URL? = Defaults.existingURL("customDestination")
     @Published var replaceOriginals = Defaults.bool("replaceOriginals", false)
     @Published var suffix = Defaults.suffix()
-    @Published var stripMetadata = Defaults.bool("stripMetadata", false)
+    @Published var stripMetadata = Defaults.bool("stripMetadata", false) { didSet { reestimate() } }
     @Published var keepDates = Defaults.bool("keepDates", true)
-    @Published var skipSmallEnough = Defaults.bool("skipSmallEnough", true)
+    @Published var skipSmallEnough = Defaults.bool("skipSmallEnough", true) { didSet { reestimate() } }
+
+    private var cancellation: Cancellation?
+    private var runStarted: Date?
+    private var runTotal = 0
+
+    // MARK: - Derived
+
+    static let presetLimits: [Double] = [0.5, 1, 2, 5]
 
     var targetBytes: Int { Int(targetMB * 1_000_000) }
+    func isPreset(_ value: Double) -> Bool { abs(targetMB - value) < 0.001 }
+    var isCustomLimit: Bool { !Self.presetLimits.contains(where: isPreset) }
     var totalBytes: Int { items.reduce(0) { $0 + $1.bytes } }
-    var pending: [Item] { items.filter { $0.result == nil } }
+    var pending: [Item] { items.filter { !$0.isDone } }
     var results: [FileResult] { items.compactMap(\.result) }
     var done: Int { results.count }
     var isFinished: Bool { !items.isEmpty && pending.isEmpty }
 
+    /// What the whole queue is expected to weigh once converted.
+    var estimatedTotal: Int {
+        items.reduce(0) { $0 + ($1.estimate?.bytes ?? $1.bytes) }
+    }
+
+    var producedBytes: Int { results.reduce(0) { $0 + ($1.newBytes ?? $1.originalBytes) } }
+    var convertedBytes: Int { results.reduce(0) { $0 + $1.originalBytes } }
     var savedBytes: Int {
         results.reduce(0) { total, result in
             guard let new = result.newBytes else { return total }
@@ -46,22 +68,52 @@ final class AppModel: ObservableObject {
         }
     }
 
-    var producedBytes: Int {
-        results.reduce(0) { $0 + ($1.newBytes ?? $1.originalBytes) }
+    /// "2 files are resized, 2 are only converted to JPEG"
+    var plan: String {
+        let shrinking = items.filter { item in
+            guard let estimate = item.estimate else { return false }
+            return estimate.bytes < item.bytes
+        }.count
+        let untouched = items.count - shrinking
+        var parts: [String] = []
+        if shrinking > 0 { parts.append("\(shrinking) \(shrinking == 1 ? "file is" : "files are") resized") }
+        if untouched > 0 { parts.append("\(untouched) \(parts.isEmpty ? "are" : "are") only converted to JPEG") }
+        return parts.joined(separator: ", ")
     }
 
-    var convertedBytes: Int {
-        results.reduce(0) { $0 + $1.originalBytes }
+    var destinationSummary: String {
+        switch destinationMode {
+        case .sameFolder: return "Saved next to the originals"
+        case .subfolder: return "Saved in a \u{201C}Converted\u{201D} subfolder"
+        case .custom: return "Saved in \(customDestination?.lastPathComponent ?? "a chosen folder")"
+        }
     }
+
+    var remainingSeconds: Int? {
+        guard isRunning, let started = runStarted, done > 0, runTotal > done else { return nil }
+        let perFile = Date().timeIntervalSince(started) / Double(done)
+        return max(1, Int((perFile * Double(runTotal - done)).rounded()))
+    }
+
+    /// Replacing a JPEG in place leaves nothing to put back.
+    var canUndo: Bool {
+        isFinished && !results.isEmpty && results.allSatisfy { result in
+            result.output?.standardizedFileURL != result.source.standardizedFileURL
+        }
+    }
+
+    // MARK: - Queue
 
     func add(urls: [URL]) {
         let images = urls.filter(Self.isImage)
-        Log.write("queued \(images.count) of \(urls.count) file(s): \(images.map(\.lastPathComponent).joined(separator: ", "))")
+        Log.write("queued \(images.count) of \(urls.count) file(s): "
+                  + images.map(\.lastPathComponent).joined(separator: ", "))
         guard !images.isEmpty else { return }
         let known = Set(items.map(\.url.standardizedFileURL))
         items += images
             .filter { !known.contains($0.standardizedFileURL) }
             .map { Item(url: $0, bytes: Converter.byteSize(of: $0)) }
+        estimateAll()
     }
 
     func remove(_ item: Item) {
@@ -85,6 +137,47 @@ final class AppModel: ObservableObject {
             skipSmallEnough: skipSmallEnough)
     }
 
+    // MARK: - Estimates
+
+    /// Measures each file's size-versus-quality curve. Only needed once per resolution.
+    func estimateAll(force: Bool = false) {
+        let cap = maxDimension > 0 ? maxDimension : nil
+        let stale = items.filter { force || $0.curve == nil || $0.curve?.maxDimension != cap }
+        guard !stale.isEmpty else { return reestimate() }
+
+        isEstimating = true
+        let ids = stale.map(\.id)
+        let urls = stale.map(\.url)
+
+        Task.detached(priority: .utility) { [self] in
+            DispatchQueue.concurrentPerform(iterations: urls.count) { index in
+                let curve = Estimator.curve(for: urls[index], maxDimension: cap)
+                Task { @MainActor in self.apply(curve, to: ids[index]) }
+            }
+            await MainActor.run {
+                self.isEstimating = false
+                self.reestimate()
+            }
+        }
+    }
+
+    /// Instant: the curves are already measured, this is interpolation.
+    func reestimate() {
+        let settings = settings()
+        for index in items.indices {
+            guard let curve = items[index].curve else { continue }
+            items[index].estimate = Estimator.estimate(curve, settings: settings)
+        }
+    }
+
+    private func apply(_ curve: SizeCurve?, to id: Item.ID) {
+        guard let index = items.firstIndex(where: { $0.id == id }), let curve else { return }
+        items[index].curve = curve
+        items[index].estimate = Estimator.estimate(curve, settings: settings())
+    }
+
+    // MARK: - Converting
+
     func convert() {
         let queue = pending
         guard !queue.isEmpty, !isRunning else { return }
@@ -93,8 +186,10 @@ final class AppModel: ObservableObject {
         let urls = queue.map(\.url)
         let ids = queue.map(\.id)
         Log.write("converting \(urls.count) file(s) → \(settings.targetBytes / 1000) KB limit")
+
         isRunning = true
         runTotal = urls.count
+        runStarted = Date()
         let cancellation = Cancellation()
         self.cancellation = cancellation
         DockProgress.show(0)
@@ -103,11 +198,15 @@ final class AppModel: ObservableObject {
             let reserver = NameReserver(sources: urls)
             DispatchQueue.concurrentPerform(iterations: urls.count) { index in
                 guard !cancellation.isCancelled else { return }
-                let result = Converter.convert(url: urls[index], settings: settings, reserver: reserver)
+                let id = ids[index]
+                let result = Converter.convert(url: urls[index], settings: settings,
+                                               reserver: reserver) { stage in
+                    Task { @MainActor in self.stage(stage, for: id) }
+                }
                 if case .failed(let reason) = result.status {
                     Log.write("failed \(urls[index].lastPathComponent): \(reason)")
                 }
-                Task { @MainActor in self.apply(result, to: ids[index]) }
+                Task { @MainActor in self.apply(result, to: id) }
             }
             let stopped = cancellation.isCancelled
             Log.write(stopped ? "cancelled" : "finished \(urls.count) file(s)")
@@ -120,9 +219,35 @@ final class AppModel: ObservableObject {
         cancellation?.cancel()
     }
 
+    /// Puts the converted files in the Trash and brings any trashed originals back.
+    func undo() {
+        let manager = FileManager.default
+        for item in items {
+            guard let result = item.result else { continue }
+            if let output = result.output {
+                try? manager.trashItem(at: output, resultingItemURL: nil)
+            }
+            if let trashed = result.trashedOriginal {
+                try? manager.moveItem(at: trashed, to: result.source)
+            }
+        }
+        Log.write("undid \(results.count) file(s)")
+        for index in items.indices {
+            items[index].result = nil
+            items[index].stage = nil
+        }
+        reestimate()
+    }
+
+    private func stage(_ stage: Converter.Stage, for id: Item.ID) {
+        guard let index = items.firstIndex(where: { $0.id == id }) else { return }
+        items[index].stage = stage
+    }
+
     private func apply(_ result: FileResult, to id: Item.ID) {
         guard let index = items.firstIndex(where: { $0.id == id }) else { return }
         items[index].result = result
+        items[index].stage = nil
         if runTotal > 0 { DockProgress.show(Double(done) / Double(runTotal)) }
     }
 
@@ -130,17 +255,33 @@ final class AppModel: ObservableObject {
         isRunning = false
         cancellation = nil
         runTotal = 0
+        runStarted = nil
+        for index in items.indices { items[index].stage = nil }
         DockProgress.clear()
         guard !cancelled, NSApp?.isActive == false else { return }
-        // Only worth a notice when the window is not the thing being looked at.
-        Notifier.post(title: "Images converted",
-                      body: summaryLine)
+        Notifier.post(title: "Images converted", body: summaryLine)
     }
 
     var summaryLine: String {
         let count = results.count
         let images = count == 1 ? "1 image" : "\(count) images"
         return savedBytes > 0 ? "\(images) · saved \(Format.bytes(savedBytes))" : images
+    }
+
+    // MARK: - Storage
+
+    /// Back to the shipped defaults, without touching the queue.
+    func resetSettings() {
+        targetMB = 2
+        maxDimension = 0
+        destinationMode = .sameFolder
+        customDestination = nil
+        replaceOriginals = false
+        suffix = ""
+        stripMetadata = false
+        keepDates = true
+        skipSmallEnough = true
+        save()
     }
 
     func save() {
@@ -175,6 +316,7 @@ enum Defaults {
     static func string(_ key: String, _ fallback: String) -> String {
         UserDefaults.standard.string(forKey: key) ?? fallback
     }
+
     /// "-small" was the old fixed default; treat it as "derive it from the limit".
     static func suffix() -> String {
         let stored = string("suffix", "")
@@ -205,6 +347,6 @@ enum Format {
 
     static func pixels(_ size: CGSize?) -> String {
         guard let size, size.width > 0 else { return "" }
-        return "\(Int(size.width))×\(Int(size.height))"
+        return "\(Int(size.width)) × \(Int(size.height))"
     }
 }
