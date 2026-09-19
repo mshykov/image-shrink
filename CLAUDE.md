@@ -109,6 +109,13 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
   clipped and has to be scrolled by a few pixels. `.frame(width:)` plus
   `.fixedSize(horizontal: false, vertical: true)` makes it report its real height; the
   popover then sizes itself, and the Settings window takes `hosting.fittingSize`.
+- **A SwiftUI popover must be measured before it is shown.** `NSHostingController` has no
+  size until it lays out, AppKit places the popover before that, and when the content then
+  grows the window is pushed to the top of the screen — the popover ends up floating above
+  the titlebar, attached to nothing, and no `preferredEdge` or anchor changes it. Hand over
+  `preferredContentSize` and `popover.contentSize` from `view.fittingSize` first
+  (`AppDelegate.sizedController`). Measured: without it the popover's top sat at the screen
+  edge (949) whatever the anchor; with it, at the button's bottom (818).
 - **`toolbar(_:itemForItemIdentifier:willBeInsertedIntoToolbar:)` runs more than once** — the
   customisation palette asks for items too. Holding on to a button created there gives you
   one that may never enter the window, and a popover anchored to it floats away from the
@@ -205,8 +212,14 @@ plain name and the names changed from run to run.
 
 ## Conventions
 
-- Ad-hoc code signing (`codesign -s -`) is deliberate: this is a local tool, not a
-  distributed one. Notarisation would only matter if it were downloaded.
+- **Signing picks the personal Developer ID**, never the work one: `build.sh` matches
+  "Developer ID Application" (Maksym Shykov, 64HRGLZCS4) and falls back to ad-hoc when there
+  is none. `IMAGESHRINK_SIGN_IDENTITY` overrides it. Notarisation would only matter if the
+  app were downloaded rather than built here.
+- **The app installs into `/Applications`** (`IMAGESHRINK_APP_DIR` overrides; it falls back
+  to `~/Applications` when that is not writable). The Finder actions call the binary by
+  absolute path, so `install.sh` exports the folder to `make-quick-action.sh` and removes any
+  copy from the other location — two copies would leave the actions pointing at a stale one.
 - The UI is English, matching the system language on this machine.
 - Bundle id `dev.shykov.imageshrink`; changing it breaks the installed Quick Action, which
   hard-codes it.

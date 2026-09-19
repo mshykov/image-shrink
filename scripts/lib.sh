@@ -40,7 +40,7 @@ plistlib.dump(data, sys.stdout.buffer)
 }
 
 warn_about_other_copies() {
-    for candidate in "/Applications/Image Shrink.app" "$HOME/Desktop/Image Shrink.app"; do
+    for candidate in "$HOME/Desktop/Image Shrink.app"; do
         [ -d "$candidate" ] && echo "  note: another copy is at $candidate — delete it by hand if it is stale"
     done
     return 0

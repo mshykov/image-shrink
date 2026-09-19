@@ -120,10 +120,24 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         }
         let popover = NSPopover()
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(
-            rootView: SettingsPopover().environmentObject(model))
-        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .maxY)
+        popover.contentViewController = Self.sizedController(
+            SettingsPopover().environmentObject(model), popover: popover)
+        popover.show(relativeTo: anchor.bounds, of: anchor, preferredEdge: .minY)
         settingsPopover = popover
+    }
+
+    /// A SwiftUI popover has no size until it is laid out, and AppKit places the popover
+    /// before that happens: it positions a zero-sized window and then, when the content
+    /// grows, the window is pushed to the top of the screen, adrift from its button.
+    /// Measuring first and handing over `contentSize` is what keeps it under the button.
+    static func sizedController<Content: View>(_ content: Content,
+                                               popover: NSPopover) -> NSHostingController<Content> {
+        let controller = NSHostingController(rootView: content)
+        controller.view.layoutSubtreeIfNeeded()
+        let size = controller.view.fittingSize
+        controller.preferredContentSize = size
+        popover.contentSize = size
+        return controller
     }
 
     private func buildMenu() {

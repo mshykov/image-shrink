@@ -41,14 +41,14 @@ final class MenuBarController: NSObject {
         }
         let popover = NSPopover()
         popover.behavior = .transient
-        popover.contentViewController = NSHostingController(rootView: MenuBarPanel(
+        popover.contentViewController = AppDelegate.sizedController(MenuBarPanel(
             model: model,
             openWindow: { [weak self] in
                 self?.popover?.performClose(nil)
                 self?.onOpenWindow()
             },
-            dropped: { [weak self] urls in self?.convertDropped(urls) }))
-        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .maxY)
+            dropped: { [weak self] urls in self?.convertDropped(urls) }), popover: popover)
+        popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         self.popover = popover
     }
 

@@ -48,7 +48,19 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp README.md "$APP/Contents/Resources/README.md"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
-echo "› signing (ad-hoc)"
-codesign --force --sign - "$APP"
+# A personal Developer ID if there is one, ad-hoc otherwise. The work identity is never
+# picked: the match is on "Developer ID Application", and IMAGESHRINK_SIGN_IDENTITY wins.
+IDENTITY="${IMAGESHRINK_SIGN_IDENTITY:-}"
+if [ -z "$IDENTITY" ]; then
+    IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
+        | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+fi
+if [ -n "$IDENTITY" ]; then
+    echo "› signing as $IDENTITY"
+    codesign --force --options runtime --sign "$IDENTITY" "$APP"
+else
+    echo "› signing (ad-hoc, no Developer ID found)"
+    codesign --force --sign - "$APP"
+fi
 
 echo "built: $APP"
