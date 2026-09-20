@@ -66,6 +66,7 @@ struct ContentView: View {
 
 struct TopBar: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: Theme.normal) {
@@ -73,6 +74,7 @@ struct TopBar: View {
 
             if model.isCustomLimit && !model.isRunning {
                 LimitField()
+                    .transition(.opacity.combined(with: .scale(scale: 0.94, anchor: .leading)))
             }
 
             Spacer(minLength: Theme.normal)
@@ -93,6 +95,8 @@ struct TopBar: View {
         }
         .disabled(model.isRunning)
         .opacity(model.isRunning ? 0.5 : 1)
+        .animation(reduceMotion ? nil : Theme.limitChange, value: model.isCustomLimit)
+        .animation(reduceMotion ? nil : Theme.limitChange, value: model.isRunning)
     }
 }
 
@@ -120,6 +124,7 @@ struct LimitPicker: View {
         .padding(3)
         .background(Capsule().fill(Color.primary.opacity(0.07)))
         .fixedSize()
+        .animation(reduceMotion ? nil : Theme.limitChange, value: model.targetMB)
     }
 
     private func button(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
@@ -141,7 +146,6 @@ struct LimitPicker: View {
                 }
         }
         .buttonStyle(.plain)
-        .animation(reduceMotion ? nil : .snappy(duration: 0.22), value: model.targetMB)
         .accessibilityLabel("Limit \(label)")
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
@@ -263,6 +267,7 @@ struct FileRow: View {
         }
         .onHover { hovering = $0 }
         .task(id: item.url) { thumbnail = await Thumbnail.load(item.url, size: 120) }
+        .animation(reduceMotion ? nil : Theme.numbers, value: item.estimate?.bytes)
         .accessibilityElement(children: .combine)
         .accessibilityLabel("\(title). \(subtitle)")
         .animation(reduceMotion ? nil : .easeOut(duration: 0.16), value: item.isDone)
@@ -364,6 +369,7 @@ struct FileRow: View {
                         Text(estimateLabel)
                             .fontWeight(.semibold)
                             .foregroundStyle(estimateTint)
+                            .numericTransition()
                     }
                     .font(Theme.meta)
                     .tabularNumbers()
@@ -454,13 +460,16 @@ struct SizeBar: View {
     var shrinks: Bool = true
     var grows: Bool = false
 
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
     var body: some View {
         GeometryReader { geometry in
             ZStack(alignment: .leading) {
                 Capsule().fill(Color.primary.opacity(0.12))
                 Capsule()
                     .fill(shrinks ? Theme.saved : (grows ? Theme.attention : Color.secondary))
-                    .frame(width: max(2, geometry.size.width * fraction))
+                    .frame(width: max(2, geometry.size.width * min(1, fraction)))
+                    .animation(reduceMotion ? nil : Theme.numbers, value: fraction)
             }
         }
         .frame(height: 3)
@@ -472,6 +481,7 @@ struct SizeBar: View {
 
 struct EmptyState: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         VStack(spacing: Theme.wide) {
@@ -494,6 +504,8 @@ struct EmptyState: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 380)
+                    .numericTransition()
+                    .animation(reduceMotion ? nil : Theme.numbers, value: model.targetBytes)
                 Button("Choose Files\u{2026}") { openPanel(model) }
                     .buttonStyle(PrimaryButton())
                     .keyboardShortcut(.defaultAction)
@@ -547,13 +559,15 @@ struct KeyCap: View {
 
 struct Footer: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         HStack(spacing: Theme.normal) {
             VStack(alignment: .leading, spacing: 2) {
-                Text(headline).font(Theme.rowTitle).tabularNumbers()
+                Text(headline).font(Theme.rowTitle).tabularNumbers().numericTransition()
                 Text(detail).font(Theme.meta).foregroundStyle(.secondary).tabularNumbers()
             }
+            .animation(reduceMotion ? nil : Theme.numbers, value: model.estimatedTotal)
             Spacer(minLength: Theme.wide)
 
             if model.isRunning {

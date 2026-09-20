@@ -23,6 +23,12 @@ enum Theme {
     /// Reserved for moving originals to Trash. Nothing else.
     static let destructive = Color(red: 1.0, green: 0.271, blue: 0.227)
 
+    /// The prototype's number: the capsule slides in 220 ms and every row re-estimates in
+    /// place, with no spinner and no reload.
+    static let limitChange = Animation.snappy(duration: 0.22, extraBounce: 0)
+    /// Numbers settling after an estimate changes.
+    static let numbers = Animation.easeOut(duration: 0.2)
+
     // Type — size / weight pairs, all system font so the app follows the user's text size.
     static let display = Font.system(size: 24, weight: .semibold)
     static let action = Font.system(size: 13, weight: .semibold)
@@ -50,6 +56,16 @@ struct ContentPanel: ViewModifier {
 
 extension View {
     func contentPanel() -> some View { modifier(ContentPanel()) }
+
+    /// Digits roll instead of snapping, where the system can do it.
+    @ViewBuilder
+    func numericTransition() -> some View {
+        if #available(macOS 14.0, *) {
+            contentTransition(.numericText())
+        } else {
+            self
+        }
+    }
 
     /// Numbers stop jittering while they update.
     func tabularNumbers() -> some View { monospacedDigit() }

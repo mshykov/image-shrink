@@ -160,6 +160,12 @@ with the numbers doing the talking.
   the primary button, green only on numbers that went down, orange for a file that could not
   reach the limit, red only for moving originals to Trash.
 - **No disabled primary button**: with an empty queue there is no footer at all.
+- **Motion belongs on the container, not on each child.** The limit capsule uses
+  `matchedGeometryEffect`, and with `.animation(…)` on every pill it stuttered: the effect
+  needs one transaction, so the animation sits on the group. `Theme.limitChange` (220 ms,
+  the prototype's number) drives the capsule and the custom field's transition;
+  `Theme.numbers` settles estimates, bars and totals, with `.numericTransition()` rolling
+  the digits on macOS 14+. Every one of them is skipped under Reduce Motion.
 - **No button wraps.** `PrimaryButton` and `SecondaryButton` pin `.lineLimit(1)` and
   `.fixedSize()`; a two-line button label is a defect, not a layout outcome.
 - **The window is the exception, not the product.** Conversions started in Finder or by
