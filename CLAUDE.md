@@ -72,6 +72,12 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
   `/System/Library/Services/Set Desktop Picture.workflow` is the reference: same key, same
   `public.image` value. This cost a whole round trip to find; do not "simplify" it away.
   Check with `pbs -dump_pboard | grep -A12 'Convert to JPEG.workflow'`.
+- **The Finder shortcut is recorded in the app**, CleanShot style, not in System Settings.
+  `Shortcut` reads and writes `key_equivalent` in the `pbs` domain's `NSServicesStatus`
+  entry through `CFPreferences` and then runs `pbs -flush`; verified that an ordinary process
+  can write there. The menu title must stay free of key glyphs, or recording a new shortcut
+  leaves a stale title behind — and the title is part of the preference key.
+  `install.sh` carries an already recorded shortcut across a reinstall (`existing_shortcut`).
 - **Quick Actions are switched on from `install.sh`**, by writing
   `pbs NSServicesStatus` entries keyed `"<CFBundleIdentifier> - <menu title> - <NSMessage>"`
   with `presentation_modes.ContextMenu = 1`. Without that the user has to enable them in the
@@ -154,6 +160,8 @@ with the numbers doing the talking.
   the primary button, green only on numbers that went down, orange for a file that could not
   reach the limit, red only for moving originals to Trash.
 - **No disabled primary button**: with an empty queue there is no footer at all.
+- **No button wraps.** `PrimaryButton` and `SecondaryButton` pin `.lineLimit(1)` and
+  `.fixedSize()`; a two-line button label is a defect, not a layout outcome.
 - **The window is the exception, not the product.** Conversions started in Finder or by
   dropping on the menu bar icon report through `ConversionHUD` — a floating panel under the
   menu bar that lingers six seconds — and never open a window. Closing the window leaves the

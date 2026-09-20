@@ -6,6 +6,8 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 OUT="${1:-build}"
+# Clear out earlier names, or a renamed action gets installed twice.
+rm -rf "$OUT"/*.workflow
 
 # $command is inserted verbatim; the templates deliberately contain no other $.
 make_workflow() {
@@ -281,11 +283,11 @@ make_workflow "$OUT/Convert to JPEG….workflow" \
     'open -b dev.shykov.imageshrink "$@"'
 
 # No window, no dock icon: the engine runs in place and reports with a sound and a notice.
-# The shortcut lives in the title because the Quick Actions submenu shows no key
-# equivalents of its own — this is the only place in Finder it can be seen.
-make_workflow "$OUT/Convert to JPEG Now ⌃⌘J.workflow" \
+# The shortcut is not in the title: it is recorded in the app, and a title with keys in it
+# would go stale the moment it changed.
+make_workflow "$OUT/Convert to JPEG Now.workflow" \
     "dev.shykov.imageshrink.instant" \
-    "Convert to JPEG Now ⌃⌘J" \
+    "Convert to JPEG Now" \
     "${BIN} --cli --saved --quiet \"\$@\""
 
 # One action per preset, straight from the list the app itself defines.

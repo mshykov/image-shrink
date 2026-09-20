@@ -516,26 +516,15 @@ struct ShortcutBanner: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 Text("You don\u{2019}t need this window").font(Theme.rowTitle)
-                HStack(spacing: Theme.tight) {
-                    Text("Select images in Finder and press").font(Theme.meta).foregroundStyle(.secondary)
-                    KeyCap("\u{2303}")
-                    KeyCap("\u{2318}")
-                    KeyCap("J")
-                    Text("\u{2014} same settings, no window.").font(Theme.meta).foregroundStyle(.secondary)
-                }
-                .fixedSize()
+                Text("Convert what is selected in Finder with these settings, no window.")
+                    .font(Theme.meta)
+                    .foregroundStyle(.secondary)
             }
             Spacer(minLength: Theme.normal)
-            Button("Change shortcut") { openKeyboardSettings() }
-                .buttonStyle(SecondaryButton())
+            ShortcutField()
         }
         .padding(Theme.normal)
         .contentPanel()
-    }
-
-    private func openKeyboardSettings() {
-        let url = URL(string: "x-apple.systempreferences:com.apple.Keyboard-Settings.extension")!
-        NSWorkspace.shared.open(url)
     }
 }
 
@@ -644,6 +633,8 @@ struct PrimaryButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(Theme.action)
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(.white)
             .padding(.horizontal, Theme.wide)
             .padding(.vertical, 7)
@@ -658,6 +649,8 @@ struct SecondaryButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
             .font(compact ? Theme.meta : Theme.action)
+            .lineLimit(1)
+            .fixedSize()
             .foregroundStyle(.primary)
             .padding(.horizontal, compact ? Theme.snug : Theme.wide)
             .padding(.vertical, compact ? 3 : 7)

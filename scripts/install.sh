@@ -17,6 +17,10 @@ if [ ! -w "$APP_DIR" ]; then
 fi
 export IMAGESHRINK_APP_DIR="$APP_DIR"
 
+# Whatever was recorded in the app wins over the default.
+RECORDED=$(existing_shortcut || true)
+[ -n "$RECORDED" ] && SHORTCUT="$RECORDED"
+
 ./scripts/build.sh
 ./scripts/make-quick-action.sh
 
@@ -68,9 +72,9 @@ killall Finder 2>/dev/null || true
 echo
 echo "Installed. Right-click images in Finder → Quick Actions:"
 echo "  Convert to JPEG…          opens the window, pick the limit, convert"
-echo "  Convert to JPEG Now ⌃⌘J   converts with the last used settings, no window"
+echo "  Convert to JPEG Now       converts with the last used settings, no window"
 echo "  one per preset            Email 2 MB, Web 1 MB, Messenger 500 KB"
 echo
-echo "Change the shortcut in System Settings → Keyboard → Keyboard Shortcuts → Services."
+echo "The shortcut (${SHORTCUT}) is recorded in the app: the banner in the window, or Settings."
 echo
 codesign -dvv "$APP_DIR/Image Shrink.app" 2>&1 | grep -E "^Authority|^Signature|^TeamIdentifier" || true

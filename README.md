@@ -30,11 +30,11 @@ to that folder. That prompt is macOS, once per folder.
 | Quick Action | What happens |
 | --- | --- |
 | **Convert to JPEG…** | The window opens with the selection loaded. Pick the limit, convert. |
-| **Convert to JPEG Now ⌃⌘J** | No window at all. Converts straight away with the settings the window used last (or a preset you pin in Settings), then a sound and a notification. |
+| **Convert to JPEG Now** (⌃⌘J by default) | No window at all. Converts straight away with the settings the window used last (or a preset you pin in Settings), then a sound and a notification. |
 | **· Email 2 MB**, **· Web 1 MB**, **· Messenger 500 KB** | One action per preset, also without a window. |
 
-The shortcut is written into the menu title because the Quick Actions submenu does not show
-key equivalents by itself, and the app window repeats it along the bottom edge.
+The shortcut is set in the app: click the keys in the window's banner, or Settings → Finder
+shortcut, and press the combination you want. Esc keeps the current one, Delete removes it.
 
 The shortcut works on a Finder selection without opening any menu. Change it in System
 Settings → Keyboard → Keyboard Shortcuts → Services, or edit `SHORTCUT` in

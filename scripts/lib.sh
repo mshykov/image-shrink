@@ -45,3 +45,18 @@ warn_about_other_copies() {
     done
     return 0
 }
+
+# The key equivalent the user last had, so install.sh can put it back after pruning.
+existing_shortcut() {
+    defaults export pbs - 2>/dev/null | python3 -c '
+import plistlib, sys
+try:
+    data = plistlib.loads(sys.stdin.buffer.read())
+except Exception:
+    sys.exit(0)
+for key, value in (data.get("NSServicesStatus") or {}).items():
+    if key.startswith("dev.shykov.imageshrink.instant") and value.get("key_equivalent"):
+        print(value["key_equivalent"])
+        break
+'
+}

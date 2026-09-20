@@ -37,7 +37,16 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             }
 
-            Section("Convert to JPEG Now \u{2303}\u{2318}J") {
+            Section("Finder shortcut") {
+                LabeledContent("Convert the selection") { ShortcutField() }
+                // Glyphs for these two do not render legibly at caption size.
+                Text("Works on any image selection in Finder. While recording, Esc keeps the "
+                     + "current one and Delete removes it.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+
+            Section("Convert to JPEG Now") {
                 Picker("Uses", selection: $instantPreset) {
                     Text("The settings the window used last").tag("")
                     ForEach(Preset.all) { preset in
