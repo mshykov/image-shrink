@@ -48,6 +48,14 @@ make_workflow() {
 			<key>NSSendFileTypes</key>
 			<array>
 				<string>public.image</string>
+				<string>public.png</string>
+				<string>public.jpeg</string>
+				<string>public.heic</string>
+				<string>public.heif</string>
+				<string>public.tiff</string>
+				<string>com.compuserve.gif</string>
+				<string>org.webmproject.webp</string>
+				<string>com.adobe.raw-image</string>
 			</array>
 		</dict>
 	</array>

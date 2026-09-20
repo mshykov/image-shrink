@@ -24,10 +24,12 @@ enum Theme {
     static let destructive = Color(red: 1.0, green: 0.271, blue: 0.227)
 
     /// The prototype's number: the capsule slides in 220 ms and every row re-estimates in
-    /// place, with no spinner and no reload.
-    static let limitChange = Animation.snappy(duration: 0.22, extraBounce: 0)
-    /// Numbers settling after an estimate changes.
-    static let numbers = Animation.easeOut(duration: 0.2)
+    /// place, with no spinner and no reload. A timing curve rather than a spring — a spring
+    /// puts most of the travel in the first third, which reads as a jump (measured: the
+    /// capsule had arrived by 100 ms).
+    static let limitChange = Animation.easeInOut(duration: 0.22)
+    /// Numbers and bars settling after an estimate changes, a touch behind the capsule.
+    static let numbers = Animation.easeInOut(duration: 0.26)
 
     // Type — size / weight pairs, all system font so the app follows the user's text size.
     static let display = Font.system(size: 24, weight: .semibold)
@@ -56,6 +58,16 @@ struct ContentPanel: ViewModifier {
 
 extension View {
     func contentPanel() -> some View { modifier(ContentPanel()) }
+
+    /// Whole strings fade into each other instead of swapping in one frame.
+    @ViewBuilder
+    func crossfadeText() -> some View {
+        if #available(macOS 14.0, *) {
+            contentTransition(.opacity)
+        } else {
+            self
+        }
+    }
 
     /// Digits roll instead of snapping, where the system can do it.
     @ViewBuilder

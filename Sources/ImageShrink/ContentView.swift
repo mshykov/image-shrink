@@ -101,34 +101,56 @@ struct TopBar: View {
 }
 
 /// The one accent on the screen, alongside the primary button.
+///
+/// The selected capsule is a single view that slides between the pills, positioned from the
+/// frames they report. `matchedGeometryEffect` was tried first and does not animate here —
+/// frame captures showed it already at its destination 50 ms in, whether the animation was a
+/// modifier or an explicit transaction.
 struct LimitPicker: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
-    @Namespace private var pill
+    @State private var frames: [Double: CGRect] = [:]
 
+    private static let space = "limit-pills"
     private let choices: [(label: String, value: Double)] = [
         ("500 KB", 0.5), ("1 MB", 1), ("2 MB", 2), ("5 MB", 5),
     ]
 
+    private var selectedValue: Double {
+        model.isCustomLimit ? -1 : model.targetMB
+    }
+
     var body: some View {
         HStack(spacing: 2) {
             ForEach(choices, id: \.value) { choice in
-                button(choice.label, selected: model.isPreset(choice.value)) {
-                    model.targetMB = choice.value
-                }
+                button(choice.label, value: choice.value, selected: model.isPreset(choice.value))
             }
-            button("Custom", selected: model.isCustomLimit) {
-                if !model.isCustomLimit { model.targetMB = 2.5 }
-            }
+            button("Custom", value: -1, selected: model.isCustomLimit)
         }
         .padding(3)
+        .coordinateSpace(name: Self.space)
+        .background(alignment: .topLeading) {
+            if let frame = frames[selectedValue] {
+                Capsule()
+                    .fill(Color.accentColor)
+                    .frame(width: frame.width, height: frame.height)
+                    .offset(x: frame.minX, y: frame.minY)
+                    .animation(reduceMotion ? nil : Theme.limitChange, value: frame)
+            }
+        }
         .background(Capsule().fill(Color.primary.opacity(0.07)))
         .fixedSize()
-        .animation(reduceMotion ? nil : Theme.limitChange, value: model.targetMB)
+        .onPreferenceChange(PillFrames.self) { frames = $0 }
     }
 
-    private func button(_ label: String, selected: Bool, action: @escaping () -> Void) -> some View {
-        Button(action: action) {
+    private func apply(_ value: Double) {
+        withAnimation(reduceMotion ? nil : Theme.limitChange) {
+            model.targetMB = value < 0 ? 2.5 : value
+        }
+    }
+
+    private func button(_ label: String, value: Double, selected: Bool) -> some View {
+        Button { if !selected { apply(value) } } label: {
             Text(label)
                 .font(Theme.control)
                 .tabularNumbers()
@@ -138,16 +160,23 @@ struct LimitPicker: View {
                 .padding(.horizontal, Theme.normal)
                 .padding(.vertical, Theme.tight)
                 .background {
-                    if selected {
-                        Capsule()
-                            .fill(Color.accentColor)
-                            .matchedGeometryEffect(id: "limit", in: pill)
+                    GeometryReader { proxy in
+                        Color.clear.preference(key: PillFrames.self,
+                                               value: [value: proxy.frame(in: .named(Self.space))])
                     }
                 }
         }
         .buttonStyle(.plain)
         .accessibilityLabel("Limit \(label)")
         .accessibilityAddTraits(selected ? [.isSelected] : [])
+    }
+}
+
+/// Where each pill sits, so one capsule can travel between them.
+private struct PillFrames: PreferenceKey {
+    static var defaultValue: [Double: CGRect] = [:]
+    static func reduce(value: inout [Double: CGRect], nextValue: () -> [Double: CGRect]) {
+        value.merge(nextValue()) { _, new in new }
     }
 }
 
@@ -250,6 +279,7 @@ struct FileRow: View {
                     .font(Theme.meta)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+                    .crossfadeText()
             }
             Spacer(minLength: Theme.normal)
             trailing
@@ -504,7 +534,7 @@ struct EmptyState: View {
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
                     .frame(maxWidth: 380)
-                    .numericTransition()
+                    .crossfadeText()
                     .animation(reduceMotion ? nil : Theme.numbers, value: model.targetBytes)
                 Button("Choose Files\u{2026}") { openPanel(model) }
                     .buttonStyle(PrimaryButton())
@@ -566,6 +596,7 @@ struct Footer: View {
             VStack(alignment: .leading, spacing: 2) {
                 Text(headline).font(Theme.rowTitle).tabularNumbers().numericTransition()
                 Text(detail).font(Theme.meta).foregroundStyle(.secondary).tabularNumbers()
+                    .crossfadeText()
             }
             .animation(reduceMotion ? nil : Theme.numbers, value: model.estimatedTotal)
             Spacer(minLength: Theme.wide)

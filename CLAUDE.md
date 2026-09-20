@@ -48,6 +48,7 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 | `scripts/make-quick-action.sh` | Generates both Automator `.workflow` bundles as plain plist XML. |
 | `scripts/lib.sh` | Removing earlier installs and pruning their services preferences. |
 | `tools/make-icon.swift` | Draws the icon at every size; there is no source art to keep. |
+| `tools/make-alpha-image.swift`, `tools/corner-pixel.swift` | Fixtures for the PNG transparency test. |
 
 ## Things that bite
 
@@ -160,6 +161,14 @@ with the numbers doing the talking.
   the primary button, green only on numbers that went down, orange for a file that could not
   reach the limit, red only for moving originals to Trash.
 - **No disabled primary button**: with an empty queue there is no footer at all.
+- **Motion needs measuring, not guessing.** `--snapshot-motion <dir>` captures frames while
+  the limit changes; scanning them for the accent colour showed the capsule's x position per
+  frame. That is how `matchedGeometryEffect` was ruled out (already at its destination 50 ms
+  in, modifier or transaction) and replaced with a single capsule positioned from a
+  `PreferenceKey` of the pill frames — and how the spring was ruled out in favour of a
+  timing curve (a spring had it arriving by 100 ms of its nominal 220).
+  Beware the y band: a scan aimed at the wrong rows measured thumbnail pixels and said
+  nothing changed.
 - **Motion belongs on the container, not on each child.** The limit capsule uses
   `matchedGeometryEffect`, and with `.animation(…)` on every pill it stuttered: the effect
   needs one transaction, so the animation sits on the group. `Theme.limitChange` (220 ms,
@@ -237,3 +246,6 @@ plain name and the names changed from run to run.
 - The UI is English, matching the system language on this machine.
 - Bundle id `dev.shykov.imageshrink`; changing it breaks the installed Quick Action, which
   hard-codes it.
+- **Input formats are declared explicitly** in `Resources/Info.plist` and in the Quick
+  Actions' `NSSendFileTypes` — `public.image` alone works, but naming PNG, HEIC, TIFF, GIF,
+  WebP and raw leaves no doubt about what Finder should offer them for.

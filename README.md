@@ -1,7 +1,7 @@
 # Image Shrink
 
-A small macOS app that converts HEIC, JPEG and PNG files to JPEG **under a size limit you
-pick at conversion time** — 1 MB, 2 MB, whatever. Built for the case where a phone photo is
+A small macOS app that converts HEIC, JPEG, PNG and anything else macOS can read (TIFF, GIF,
+WebP, camera raw) to JPEG **under a size limit you pick at conversion time** — 1 MB, 2 MB, whatever. Built for the case where a phone photo is
 8 MB and the form you are uploading it to accepts 2.
 
 Right-click images in Finder → **Quick Actions → Convert to JPEG** → set the limit → convert.
@@ -68,6 +68,12 @@ Most conversions never need it:
 
 Closing the window does not quit the app: it stays in the menu bar, and the Dock icon goes
 away until you open a window again. Settings (⌘,) has an **Open at login** switch.
+
+## Formats
+
+In: HEIC/HEIF, JPEG, PNG, TIFF, GIF, WebP and camera raw — whatever ImageIO reads on this
+version of macOS. Out: always JPEG. Transparency is flattened onto white, because JPEG has no
+alpha channel; the smoke test checks that.
 
 ## Presets
 

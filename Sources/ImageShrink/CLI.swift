@@ -30,6 +30,7 @@ enum CLI {
       --snapshot-settings  render the Settings window instead
       --snapshot-popover   render the settings popover instead
       --snapshot-menubar   render the menu bar panel instead
+      --snapshot-motion <dir>  capture frames while the limit changes
     """
 
     static func run(arguments: [String]) -> Int32 {
@@ -50,6 +51,7 @@ enum CLI {
         var snapshotSettings = false
         var snapshotPopover = false
         var snapshotMenuBar = false
+        var motionDirectory: String?
         var index = 0
 
         func next(_ flag: String) -> String? {
@@ -124,6 +126,9 @@ enum CLI {
                 snapshotPopover = true
             case "--snapshot-menubar":
                 snapshotMenuBar = true
+            case "--snapshot-motion":
+                guard let value = next(argument) else { return 2 }
+                motionDirectory = value
             default:
                 if argument.hasPrefix("-") {
                     FileHandle.standardError.write(Data("unknown option \(argument)\n".utf8))
@@ -132,6 +137,10 @@ enum CLI {
                 files.append(URL(fileURLWithPath: (argument as NSString).expandingTildeInPath))
             }
             index += 1
+        }
+
+        if let motionDirectory {
+            return MainActor.assumeIsolated { captureMotion(into: motionDirectory, files: files) }
         }
 
         if let snapshot {
@@ -194,6 +203,57 @@ enum CLI {
                           body: body, waitForDelivery: true)
         }
         return failures > 0 ? 1 : 0
+    }
+
+    /// Frames of the limit changing, so the motion can be looked at rather than guessed at.
+    @MainActor
+    private static func captureMotion(into directory: String, files: [URL]) -> Int32 {
+        _ = NSApplication.shared
+        NSApp.setActivationPolicy(.accessory)
+        let model = AppModel()
+        model.targetMB = 2
+        model.add(urls: files)
+
+        let hosting = NSHostingView(rootView: ContentView().environmentObject(model))
+        hosting.frame = NSRect(x: 0, y: 0, width: 760, height: 620)
+        let window = NSWindow(contentRect: hosting.frame, styleMask: [.titled, .resizable],
+                              backing: .buffered, defer: false)
+        window.contentView = hosting
+        window.orderFrontRegardless()
+
+        // Let the estimates land first.
+        pump(while: { model.isEstimating || model.items.contains { $0.estimate == nil } }, limit: 20)
+        pump(while: { true }, limit: 0.6)
+
+        try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true)
+        // Exactly what the pill does, or the capture measures a path nobody takes.
+        withAnimation(Theme.limitChange) { model.targetMB = 1 }
+
+        for frame in 0..<10 {
+            pump(while: { true }, limit: 0.05)
+            write(hosting, to: "\(directory)/frame-\(String(format: "%02d", frame)).png")
+        }
+        print("motion frames in \(directory)")
+        return 0
+    }
+
+    /// The presentation layer, so a frame shows the animation mid-flight.
+    @MainActor
+    private static func write(_ view: NSView, to path: String) {
+        let scale = 1.0
+        let width = Int(view.bounds.width * scale), height = Int(view.bounds.height * scale)
+        guard let layer = view.layer,
+              let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
+                                      bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
+                                      bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return }
+        context.setFillColor(CGColor(gray: 0.12, alpha: 1))
+        context.fill(CGRect(x: 0, y: 0, width: width, height: height))
+        context.translateBy(x: 0, y: CGFloat(height))
+        context.scaleBy(x: scale, y: -scale)
+        (layer.presentation() ?? layer).render(in: context)
+        guard let image = context.makeImage() else { return }
+        let rep = NSBitmapImageRep(cgImage: image)
+        try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
     }
 
     /// The Finder path: no window, a floating panel that reports and then disappears.

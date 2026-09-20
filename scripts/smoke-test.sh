@@ -53,6 +53,14 @@ grown=$(only "$WORK/noinflate/photo-*.jpg")
 [ "$(size "$grown")" -le "$(size "$WORK/photo.heic")" ] \
     || fail "converting a HEIC with an 8 MB limit produced a bigger file"
 
+echo "› PNG converts, and transparency lands on white"
+xcrun swift tools/make-alpha-image.swift "$WORK/alpha.png" >/dev/null
+"$BIN" --cli --target-mb 1 --dest "$WORK/png" "$WORK/alpha.png" >/dev/null
+converted=$(only "$WORK/png/alpha-*.jpg")
+[ "$(sips -g format "$converted" | tail -1 | tr -d ' ' )" = "format:jpeg" ] || fail "PNG did not become a JPEG"
+corner=$(xcrun swift tools/corner-pixel.swift "$converted")
+[ "$corner" = "255 255 255" ] || fail "transparent corner came out $corner, not white"
+
 echo "› a cancelled run stops cleanly and leaves work pending"
 mkdir -p "$WORK/many"
 for i in 1 2 3 4 5 6 7 8 9 10 11 12; do cp "$WORK/photo.jpg" "$WORK/many/photo$i.jpg"; done
