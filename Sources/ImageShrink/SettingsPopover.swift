@@ -101,7 +101,7 @@ struct SettingsPopover: View {
                     .fill(Color.primary.opacity(0.06)))
             Text(footnote)
                 .font(Theme.meta)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Theme.caption)
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

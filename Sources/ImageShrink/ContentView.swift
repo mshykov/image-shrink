@@ -82,7 +82,7 @@ struct TopBar: View {
             if model.isRunning {
                 Text("Settings are locked while converting")
                     .font(Theme.control)
-                    .foregroundStyle(.tertiary)
+                    .foregroundStyle(Theme.caption)
             } else {
                 Label(model.destinationSummary, systemImage: "folder")
                     .font(Theme.control)
@@ -241,7 +241,7 @@ struct FileList: View {
             Spacer()
             Text(hint)
                 .font(Theme.meta)
-                .foregroundStyle(.tertiary)
+                .foregroundStyle(Theme.caption)
         }
         .padding(.horizontal, Theme.wide)
         .padding(.vertical, Theme.snug)

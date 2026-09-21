@@ -31,6 +31,7 @@ enum CLI {
       --snapshot-popover   render the settings popover instead
       --snapshot-menubar   render the menu bar panel instead
       --snapshot-motion <dir>  capture frames while the limit changes
+      --snapshot-light     render in the light appearance
     """
 
     static func run(arguments: [String]) -> Int32 {
@@ -52,6 +53,7 @@ enum CLI {
         var snapshotPopover = false
         var snapshotMenuBar = false
         var motionDirectory: String?
+        var lightAppearance = false
         var index = 0
 
         func next(_ flag: String) -> String? {
@@ -126,6 +128,8 @@ enum CLI {
                 snapshotPopover = true
             case "--snapshot-menubar":
                 snapshotMenuBar = true
+            case "--snapshot-light":
+                lightAppearance = true
             case "--snapshot-motion":
                 guard let value = next(argument) else { return 2 }
                 motionDirectory = value
@@ -147,7 +151,8 @@ enum CLI {
             return MainActor.assumeIsolated {
                 render(to: snapshot, files: files, settings: settings,
                        convert: snapshotRun, settingsScreen: snapshotSettings,
-                       popover: snapshotPopover, menuBar: snapshotMenuBar)
+                       popover: snapshotPopover, menuBar: snapshotMenuBar,
+                       light: lightAppearance)
             }
         }
 
@@ -311,9 +316,11 @@ enum CLI {
     @MainActor
     private static func render(to path: String, files: [URL], settings: ConversionSettings,
                                convert: Bool, settingsScreen: Bool = false,
-                               popover: Bool = false, menuBar: Bool = false) -> Int32 {
+                               popover: Bool = false, menuBar: Bool = false,
+                               light: Bool = false) -> Int32 {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
+        NSApp.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
         let model = AppModel()
         model.targetMB = Double(settings.targetBytes) / 1_000_000
         model.destinationMode = settings.destinationMode
@@ -342,6 +349,7 @@ enum CLI {
                               backing: .buffered, defer: false)
         window.title = "Image Shrink"
         window.applyGlassChrome()
+        window.appearance = NSApp.appearance
         window.contentView = hosting
         window.orderFrontRegardless()
 
@@ -367,7 +375,8 @@ enum CLI {
               let context = CGContext(data: nil, width: width, height: height, bitsPerComponent: 8,
                                       bytesPerRow: 0, space: CGColorSpace(name: CGColorSpace.sRGB)!,
                                       bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue) else { return 1 }
-        context.setFillColor(CGColor(gray: 0.12, alpha: 1))
+        let backdrop = NSColor.windowBackgroundColor.usingColorSpace(.sRGB) ?? .white
+        context.setFillColor(backdrop.cgColor)
         context.fill(CGRect(x: 0, y: 0, width: width, height: height))
         context.translateBy(x: 0, y: CGFloat(height))
         context.scaleBy(x: scale, y: -scale)

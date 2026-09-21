@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 /// The design system: three glass layers, one accent, five text sizes, concentric radii.
@@ -17,11 +18,22 @@ enum Theme {
     static let loose: CGFloat = 24
 
     /// Only on numbers that went down, and on finished rows.
-    static let saved = Color(red: 0.204, green: 0.780, blue: 0.349)
+    static let saved = dynamic(dark: (0.204, 0.780, 0.349), light: (0.141, 0.541, 0.239))
     /// A file that could not reach the limit. Never a failure tone.
-    static let attention = Color(red: 1.0, green: 0.624, blue: 0.039)
+    static let attention = dynamic(dark: (1.0, 0.624, 0.039), light: (0.706, 0.396, 0.0))
     /// Reserved for moving originals to Trash. Nothing else.
-    static let destructive = Color(red: 1.0, green: 0.271, blue: 0.227)
+    static let destructive = dynamic(dark: (1.0, 0.271, 0.227), light: (0.843, 0.0, 0.082))
+
+    /// The prototype's colours are the dark-mode ones; on white they lose too much contrast,
+    /// so each has the darker sibling macOS itself uses in the light appearance.
+    private static func dynamic(dark: (Double, Double, Double),
+                                light: (Double, Double, Double)) -> Color {
+        Color(nsColor: NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.aqua, .darkAqua]) == .darkAqua
+            let value = isDark ? dark : light
+            return NSColor(srgbRed: value.0, green: value.1, blue: value.2, alpha: 1)
+        })
+    }
 
     /// The prototype's number: the capsule slides in 220 ms and every row re-estimates in
     /// place, with no spinner and no reload. A timing curve rather than a spring — a spring
@@ -30,6 +42,10 @@ enum Theme {
     static let limitChange = Animation.easeInOut(duration: 0.22)
     /// Numbers and bars settling after an estimate changes, a touch behind the capsule.
     static let numbers = Animation.easeInOut(duration: 0.26)
+
+    /// The third text tier. The system sets three — 95 / 62 / 52 % — and 52 % is the floor;
+    /// SwiftUI's `.tertiary` sits below it and captions stop reading, most visibly on white.
+    static let caption = Color.primary.opacity(0.52)
 
     // Type — size / weight pairs, all system font so the app follows the user's text size.
     static let display = Font.system(size: 24, weight: .semibold)
@@ -45,14 +61,22 @@ struct ContentPanel: ViewModifier {
     @Environment(\.colorSchemeContrast) private var contrast
 
     func body(content: Content) -> some View {
-        content.background(fill, in: RoundedRectangle(cornerRadius: Theme.panelRadius, style: .continuous))
+        let shape = RoundedRectangle(cornerRadius: Theme.panelRadius, style: .continuous)
+        content
+            .background(fill, in: shape)
+            .overlay {
+                if scheme == .light {
+                    shape.strokeBorder(Color.black.opacity(0.06), lineWidth: 0.5)
+                }
+            }
     }
 
     private var fill: Color {
         if contrast == .increased {
-            return scheme == .dark ? Color(white: 0.16) : Color(white: 0.98)
+            return scheme == .dark ? Color(white: 0.16) : Color(white: 1.0)
         }
-        return scheme == .dark ? Color.white.opacity(0.045) : Color.white.opacity(0.65)
+        // On white the panel needs to be lighter than the window, not a wash over it.
+        return scheme == .dark ? Color.white.opacity(0.045) : Color.white.opacity(0.92)
     }
 }
 

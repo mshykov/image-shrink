@@ -161,6 +161,13 @@ with the numbers doing the talking.
   the primary button, green only on numbers that went down, orange for a file that could not
   reach the limit, red only for moving originals to Trash.
 - **No disabled primary button**: with an empty queue there is no footer at all.
+- **Light appearance is not free.** `--snapshot-light` renders it (and the capture fills its
+  own backdrop from `windowBackgroundColor`, or a light render looks broken for no reason).
+  Two things had to change for it: the prototype's palette is the dark-mode one, so
+  `Theme.saved`/`attention`/`destructive` are now dynamic colours with the darker siblings
+  macOS uses on white; and `.tertiary` text sits below the system's 52 % floor and stops
+  reading — captions use `Theme.caption` instead. The content panel is near-white with a
+  hairline in light, where a translucent wash would vanish into the window.
 - **Motion needs measuring, not guessing.** `--snapshot-motion <dir>` captures frames while
   the limit changes; scanning them for the accent colour showed the capsule's x position per
   frame. That is how `matchedGeometryEffect` was ruled out (already at its destination 50 ms
