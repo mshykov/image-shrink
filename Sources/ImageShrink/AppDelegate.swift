@@ -15,6 +15,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         installServicesIfNeeded()
+        Updater.start()
         let menuBar = MenuBarController(model: model) { [weak self] in self?.showWindow() }
         menuBar.install()
         self.menuBar = menuBar
@@ -109,7 +110,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     }
 
     @objc func checkForUpdates(_ sender: Any?) {
-        NSWorkspace.shared.open(Self.releases)
+        Updater.checkForUpdates()
     }
 
     @objc func showSettings(_ sender: Any?) {
@@ -196,7 +197,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About Image Shrink", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
-        appMenu.addItem(withTitle: "Check for Updates", action: #selector(checkForUpdates(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "Check for Updates…", action: #selector(checkForUpdates(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings(_:)), keyEquivalent: ",")
         appMenu.addItem(withTitle: "Reinstall Finder Actions", action: #selector(reinstallServices(_:)), keyEquivalent: "")

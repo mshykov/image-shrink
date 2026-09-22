@@ -125,10 +125,16 @@ paths are all behind `#available(macOS 26)` and have never run on an older syste
 - `CFBundleShortVersionString` is what people see (`1.0.0`); `CFBundleVersion` must increase
   every single release — an update mechanism compares it numerically.
 - Keep a `CHANGELOG.md`. It feeds the release notes, the site and the Sparkle appcast.
-- For updates, [Sparkle 2](https://sparkle-project.org): an EdDSA key pair, `appcast.xml` on
-  the site, each DMG signed with the private key. Cheaper interim option: a "Check for
-  updates" menu item that opens the GitHub releases page. Do not ship a v1 with no path at
-  all — it means every future fix reaches nobody.
+- **Updates are [Sparkle 2](https://sparkle-project.org), and they work.** The framework is
+  fetched into `vendor/` by `scripts/fetch-sparkle.sh`, pinned by version and checksum, and
+  embedded at build time. `release.sh` signs the DMG with the EdDSA key in this Mac's keychain
+  and publishes `appcast.xml` **as a release asset**, so the feed lives at
+  `releases/latest/download/appcast.xml` and a release needs no push to a protected branch.
+  The app asks on its second launch whether to check automatically; Homebrew copies keep
+  updating through `brew upgrade` instead.
+- **The private key is the thing to not lose.** It is in the release Mac's keychain, and
+  nothing else can sign an update the installed apps will accept. Losing it means every
+  existing installation is stranded on its current version and has to be replaced by hand.
 
 ## 2. Where it gets published
 

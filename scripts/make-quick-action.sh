@@ -285,7 +285,7 @@ APP_DIR="${IMAGESHRINK_APP_DIR:-/Applications}"
 # in the path it is actually running from, wherever the download ended up.
 BIN="${IMAGESHRINK_BIN:-\"${APP_DIR}/Image Shrink.app/Contents/MacOS/ImageShrink\"}"
 LOCAL_BIN="build/Image Shrink.app/Contents/MacOS/ImageShrink"
-[ -x "$LOCAL_BIN" ] || LOCAL_BIN="build/ImageShrink"
+[[ -x "$LOCAL_BIN" ]] || LOCAL_BIN="build/ImageShrink"
 
 make_workflow "$OUT/Convert to JPEG….workflow" \
     "dev.shykov.imageshrink.quickaction" \
@@ -301,10 +301,16 @@ make_workflow "$OUT/Convert to JPEG Now.workflow" \
     "${BIN} --cli --saved --quiet \"\$@\""
 
 # One action per preset, straight from the list the app itself defines.
+presets=$("$LOCAL_BIN" --cli --list-presets) || {
+    echo "the binary could not list its presets — is everything it links inside the bundle?" >&2
+    exit 1
+}
+[[ -n "$presets" ]] || { echo "the preset list came back empty" >&2; exit 1; }
+
 while IFS=$'\t' read -r id title detail; do
-    [ -n "$id" ] || continue
+    [[ -n "$id" ]] || continue
     make_workflow "$OUT/$title.workflow" \
         "dev.shykov.imageshrink.preset.$id" \
         "$title" \
         "${BIN} --cli --preset $id --quiet \"\$@\""
-done < <("$LOCAL_BIN" --cli --list-presets)
+done <<< "$presets"
