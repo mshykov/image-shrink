@@ -72,6 +72,11 @@ If it is rejected, `xcrun notarytool log <submission-id> --keychain-profile imag
 why. The usual causes are a missing hardened runtime (we have it) and a missing secure
 timestamp (we have that too).
 
+Keep the `.p8` outside the repository — `~/.appstoreconnect/private_keys/` is where Apple's
+own tools look, and a password manager is better still. Apple lets you download that file once,
+so losing it means generating a new key; an ignored folder inside the repo is not a safe place
+for it, as a stray `git add -A` here proved.
+
 `store-credentials` returning 401 is about the password, not the setup: Apple shows an
 app-specific password once, at creation, and the list afterwards only shows its label. Having
 several of them is fine — they do not conflict. An App Store Connect API key (`--key`,

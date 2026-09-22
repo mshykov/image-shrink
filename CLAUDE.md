@@ -277,8 +277,12 @@ plain name and the names changed from run to run.
 
 - **Signing picks the personal Developer ID**, never the work one: `build.sh` matches
   "Developer ID Application" (Maksym Shykov, 64HRGLZCS4) and falls back to ad-hoc when there
-  is none. `IMAGESHRINK_SIGN_IDENTITY` overrides it. Notarisation would only matter if the
-  app were downloaded rather than built here.
+  is none. `IMAGESHRINK_SIGN_IDENTITY` overrides it. A release goes through `release.sh`,
+  which notarises and staples — a downloaded copy is refused by Gatekeeper without that.
+- **Never `git add -A` here.** `_do-not-commit/` holds the App Store Connect key and is
+  ignored, but an ignore rule is one `-f` or one careless rewrite away from failing: stage the
+  paths you meant to change and read `git status` before committing. This is not hypothetical —
+  a `.p8` private key was committed in this repo that way and had to be taken back out.
 - **The app installs into `/Applications`** (`IMAGESHRINK_APP_DIR` overrides; it falls back
   to `~/Applications` when that is not writable). The Finder actions call the binary by
   absolute path, so `install.sh` exports the folder to `make-quick-action.sh` and removes any
