@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.1.0 — unreleased
+## 1.1.0 — 2026-09-22
 
 - **The app updates itself.** Sparkle reads a feed of releases and installs them in place,
   verifying each downloaded update against the public key inside the app before it runs;
