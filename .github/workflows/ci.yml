@@ -1,12 +1,13 @@
 # Builds the app and runs the smoke test on every pull request.
 name: ci
 
+# No path filter. `build` is a required check, and a pull request that touches only docs never
+# fires a filtered workflow — so the check stays pending and the pull request can never merge.
+# Two minutes on every pull request is the cheaper half of that trade.
 on:
   push:
     branches: [main]
-    paths-ignore: ["site/**", "docs/**", "**.md"]
   pull_request:
-    paths-ignore: ["site/**", "docs/**", "**.md"]
   workflow_dispatch:
 
 permissions:

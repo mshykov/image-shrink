@@ -32,6 +32,13 @@ already cost someone a day. Read the section that covers what you are touching.
 - **Commits are signed** (the branch rule enforces it) and messages are conventional and
   imperative: `fix: the limit capsule really slides`.
 
+## How a change lands
+
+Branch, push, open a pull request — that is the only way in, and the maintainer works the same
+way. `main` takes no direct pushes at all. The `build` check has to pass, every review thread has
+to be resolved, and the merge is a squash, so `main` stays a straight line of one commit per
+change.
+
 ## What is likely to be turned down
 
 - Other output formats. JPEG out is the point; PNG or WebP out is a different app.
