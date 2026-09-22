@@ -71,4 +71,54 @@ echo "› files already under the limit are left alone"
 out="$("$BIN" --cli --target-mb 5 "$WORK/tiny/photo-500KB.jpg")"
 [[ "$out" == *"already under the limit"* ]] || fail "small file was re-encoded: $out"
 
+echo "› odd formats: a CMYK JPEG and a 16-bit TIFF"
+xcrun swift tools/make-odd-images.swift "$WORK/odd" >/dev/null
+"$BIN" --cli --target-mb 1 --dest "$WORK/oddout" "$WORK/odd/cmyk.jpg" "$WORK/odd/deep.tiff" >/dev/null
+[ -f "$WORK/oddout/cmyk-1MB.jpg" ] || fail "the CMYK JPEG did not convert"
+[ -f "$WORK/oddout/deep-1MB.jpg" ] || fail "the 16-bit TIFF did not convert"
+for f in "$WORK/oddout"/*.jpg; do
+    [ "$(size "$f")" -le 1000000 ] || fail "$f is over 1 MB"
+done
+# The CMYK JPEG comes out CMYK — the encoder keeps the source colour space. Asserted rather
+# than assumed, because some upload forms reject CMYK JPEGs, so the day this changes it should
+# be a deliberate change with a changelog line, not a surprise.
+space=$(sips -g space "$WORK/oddout/cmyk-1MB.jpg" | tail -1 | tr -d ' ')
+[ "$space" = "space:CMYK" ] || fail "CMYK output is now $space — intended? then update this test"
+
+
+echo "› a panorama keeps its shape"
+"$BIN" --cli --target-mb 0.5 --dest "$WORK/pano" "$WORK/odd/panorama.jpg" >/dev/null
+pano=$(only "$WORK/pano/panorama-*.jpg")
+[ "$(size "$pano")" -le 500000 ] || fail "the panorama came out over 500 KB"
+width=$(sips -g pixelWidth "$pano" | tail -1 | tr -dc 0-9)
+height=$(sips -g pixelHeight "$pano" | tail -1 | tr -dc 0-9)
+# 8000 × 1400 is 5.71:1; anything that resizes by the wrong axis lands far outside 5.6–5.8.
+ratio=$(echo "scale=2; $width / $height" | bc)
+case "$ratio" in 5.6*|5.7*|5.8*) ;; *) fail "the panorama came out $width × $height ($ratio:1)" ;; esac
+
+echo "› files that are not images fail cleanly"
+printf 'this is not an image' > "$WORK/fake.jpg"
+: > "$WORK/empty.jpg"
+for broken in fake empty; do
+    if "$BIN" --cli --target-mb 1 --dest "$WORK/bad" "$WORK/$broken.jpg" >/dev/null 2>&1; then
+        fail "$broken.jpg was reported as converted"
+    fi
+done
+[ -z "$(ls -A "$WORK/bad" 2>/dev/null || true)" ] || fail "an unreadable file still produced output"
+
+echo "› a JPEG with no extension is still a JPEG"
+cp "$WORK/odd/panorama.jpg" "$WORK/extensionless"
+"$BIN" --cli --target-mb 1 --dest "$WORK/noext" "$WORK/extensionless" >/dev/null
+[ -f "$WORK/noext/extensionless-1MB.jpg" ] || fail "a file with no extension did not convert"
+
+echo "› a destination it cannot write to is an error, not a crash"
+mkdir -p "$WORK/readonly"
+chmod 555 "$WORK/readonly"
+if "$BIN" --cli --target-mb 1 --dest "$WORK/readonly" "$WORK/odd/cmyk.jpg" >/dev/null 2>&1; then
+    chmod 755 "$WORK/readonly"
+    fail "writing into a read-only folder was reported as success"
+fi
+chmod 755 "$WORK/readonly"
+[ -z "$(ls -A "$WORK/readonly")" ] || fail "something was written into the read-only folder"
+
 echo "PASS"
