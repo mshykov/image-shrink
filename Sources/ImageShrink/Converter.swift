@@ -152,7 +152,7 @@ enum Converter {
 
         for _ in 0..<8 {
             guard let image = makeImage(source, maxPixel: maxPixel, fullSize: fullSize) else { return fallback }
-            let flat = flattenIfNeeded(image)
+            let flat = prepareForJPEG(image)
             let pixels = CGSize(width: flat.width, height: flat.height)
 
             if noInflation < settings.targetBytes,
@@ -249,14 +249,24 @@ enum Converter {
         return CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary)
     }
 
-    /// JPEG has no alpha channel, so transparency is composited onto white.
-    private static func flattenIfNeeded(_ image: CGImage) -> CGImage {
+    /// What a JPEG destined for an upload form can actually be.
+    ///
+    /// Two things are redrawn, both onto an opaque sRGB canvas. Transparency, because JPEG has
+    /// no alpha channel — it is composited onto white. And any colour space that is not RGB or
+    /// grayscale, because a CMYK JPEG out of a print workflow is valid and still shows up
+    /// inverted or washed out in half the places people upload it to, if it is accepted at all.
+    /// Grayscale is left alone: it is universally understood, and converting it would triple
+    /// the bytes for no gain.
+    static func prepareForJPEG(_ image: CGImage) -> CGImage {
+        let opaque: Bool
         switch image.alphaInfo {
-        case .none, .noneSkipFirst, .noneSkipLast:
-            return image
-        default:
-            break
+        case .none, .noneSkipFirst, .noneSkipLast: opaque = true
+        default: opaque = false
         }
+        let model = image.colorSpace?.model
+        let shippable = model == .rgb || model == .monochrome
+        if opaque && shippable { return image }
+
         guard let space = CGColorSpace(name: CGColorSpace.sRGB),
               let context = CGContext(data: nil, width: image.width, height: image.height,
                                       bitsPerComponent: 8, bytesPerRow: 0, space: space,

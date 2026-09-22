@@ -55,13 +55,16 @@ enum Estimator {
             options[kCGImageSourceThumbnailMaxPixelSize] = cap
         }
 
-        let image: CGImage?
+        let decodedImage: CGImage?
         if options[kCGImageSourceThumbnailMaxPixelSize] != nil {
-            image = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
+            decodedImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary)
         } else {
-            image = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary)
+            decodedImage = CGImageSourceCreateImageAtIndex(source, 0, options as CFDictionary)
         }
-        guard let image else { return nil }
+        guard let decoded = decodedImage else { return nil }
+        // The same preparation the converter applies, or the samples describe an image nobody
+        // is going to encode: a CMYK original measured as CMYK, a transparent PNG as RGBA.
+        let image = Converter.prepareForJPEG(decoded)
 
         let samples = sampledQualities.compactMap { quality -> (Double, Int)? in
             guard let bytes = encodedSize(image, quality: quality) else { return nil }
