@@ -167,7 +167,7 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 
 ## Design
 
-The window follows the Claude Design prototype in `docs/prototype/` — a list, not a grid,
+The window follows a Claude Design prototype (kept outside the repository) — a list, not a grid,
 with the numbers doing the talking.
 
 - **Every row carries its own estimate.** Before anything is converted each file shows

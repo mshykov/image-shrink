@@ -175,10 +175,10 @@ universal DMG tested on a clean Mac; site live; support email; changelog.
 screenshots in both appearances, a 1280×800 OG image, and the one-sentence description reused
 everywhere: *"Right-click any photo in Finder and get a JPEG under the size limit you pick."*
 
-**T-1 — the posts are already written**, in [launch-copy.md](launch-copy.md): Show HN title and
-first comment, the Product Hunt tagline and description, the r/macapps post, the social posts,
-the pitch email, and the shot list for the recording. Read them once in your own voice and cut
-anything that sounds like someone else.
+**T-1 — the posts are already written** and live outside the repository, in
+`_do-not-commit/launch-copy.md`: Show HN title and first comment, the Product Hunt tagline and
+description, the r/macapps post, the social posts, the pitch email, and the shot list for the
+recording. Read them once in your own voice and cut anything that sounds like someone else.
 
 **T-0, a Tuesday–Thursday.**
 - **Product Hunt** goes live at 00:01 PT automatically — there is no later slot — and the first
