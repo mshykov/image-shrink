@@ -1,0 +1,26 @@
+name: An idea
+description: Something the app should do, or should stop doing
+labels: [idea]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: The situation you are in
+      description: >
+        What you were trying to do when the app got in the way. The situation matters more than
+        the solution — there is usually more than one way out of it.
+      placeholder: |
+        I send photos to a print shop that rejects anything over 10 MB, but they need the
+        original resolution, so the 5 MB preset is not enough and Custom is four clicks away.
+    validations:
+      required: true
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+  - type: markdown
+    attributes:
+      value: >
+        Worth knowing before you write: the app converts to JPEG and nothing else, and it has no
+        network code — other output formats, cloud storage and telemetry are all deliberate
+        no's. Everything else is open.
