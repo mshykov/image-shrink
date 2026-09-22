@@ -1,0 +1,45 @@
+# Builds the app and runs the smoke test on every pull request.
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths-ignore: ["site/**", "docs/**", "**.md"]
+  pull_request:
+    paths-ignore: ["site/**", "docs/**", "**.md"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: What this runner has
+        run: |
+          sw_vers
+          ls -d /Applications/Xcode*.app 2>/dev/null || true
+          xcodebuild -version
+          xcrun --show-sdk-version
+
+      # The window uses macOS 26 APIs behind #available, so it needs that SDK to compile at all.
+      - name: Pick the newest Xcode
+        run: |
+          newest=$(ls -d /Applications/Xcode*.app 2>/dev/null | sort -V | tail -1)
+          [ -n "$newest" ] && sudo xcode-select -s "$newest"
+          xcodebuild -version
+
+      - name: Build
+        run: ./scripts/build.sh
+
+      - name: Smoke test
+        run: ./scripts/smoke-test.sh
