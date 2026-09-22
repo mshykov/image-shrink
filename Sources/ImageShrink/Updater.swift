@@ -38,7 +38,9 @@ enum Updater {
     #else
     static var isBuiltIn: Bool { false }
 
-    static func start() {}
+    static func start() {
+        // Nothing to start: this build has no updater, and the menu item opens the releases page.
+    }
 
     static func checkForUpdates() {
         NSWorkspace.shared.open(AppDelegate.releases)

@@ -126,9 +126,9 @@ spctl -a -vvv -t exec "$APP" 2>&1 | sed 's/^/  /' || true
 # keychain, travels as a release asset, and is generated after the DMG is final — a signature
 # over bytes that later change is worse than none.
 APPCAST=""
-if [ -d vendor/sparkle ]; then
+if [[ -d vendor/sparkle ]]; then
     echo "› appcast"
-    python3 scripts/make-appcast.py "$DMG" > build/appcast.xml
+    python3 scripts/make-appcast.py > build/appcast.xml
     APPCAST="build/appcast.xml"
     echo "  $(grep -o 'sparkle:version>[0-9]*' build/appcast.xml | head -1 | cut -d'>' -f2) signed"
 else
@@ -166,7 +166,7 @@ echo "› GitHub release"
     echo "and notarised by Apple."
 } > "${NOTES}.full"
 assets=("${DMG}#Image Shrink ${VERSION} (universal, notarised)")
-[ -n "$APPCAST" ] && assets+=("${APPCAST}#Sparkle appcast")
+[[ -n "$APPCAST" ]] && assets+=("${APPCAST}#Sparkle appcast")
 if gh release view "v${VERSION}" >/dev/null 2>&1; then
     gh release upload "v${VERSION}" "$DMG" ${APPCAST:+"$APPCAST"} --clobber
     gh release edit "v${VERSION}" --notes-file "${NOTES}.full"

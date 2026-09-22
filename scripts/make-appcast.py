@@ -1,7 +1,11 @@
 #!/usr/bin/env python3
-"""Writes the Sparkle appcast for a built disk image, to stdout.
+"""Writes the Sparkle appcast for the built disk image, to stdout.
 
-    python3 scripts/make-appcast.py build/ImageShrink-1.1.0.dmg > build/appcast.xml
+    python3 scripts/make-appcast.py > build/appcast.xml
+
+It takes no arguments on purpose: the disk image is the one Resources/Info.plist describes, so
+the feed can only ever advertise the build it was generated from, and nothing from the command
+line reaches a subprocess.
 
 The feed is published as a release asset rather than committed, so a release needs no push to
 a protected branch. The update is signed with the EdDSA key in this Mac's keychain; an app
@@ -23,11 +27,8 @@ FEED = f"https://github.com/{REPOSITORY}/releases/latest/download/appcast.xml"
 SIGN_UPDATE = pathlib.Path("vendor/sparkle/bin/sign_update")
 GENERATE_KEYS = pathlib.Path("vendor/sparkle/bin/generate_keys")
 
-if len(sys.argv) != 2:
-    sys.exit("usage: make-appcast.py <path-to-dmg>")
-dmg = pathlib.Path(sys.argv[1])
-if not dmg.is_file():
-    sys.exit(f"no disk image at {dmg}")
+if len(sys.argv) != 1:
+    sys.exit("usage: make-appcast.py   # no arguments; it reads Resources/Info.plist")
 if not SIGN_UPDATE.is_file():
     sys.exit("no vendor/sparkle/bin/sign_update — run ./scripts/fetch-sparkle.sh")
 
@@ -35,6 +36,10 @@ info = plistlib.loads(pathlib.Path("Resources/Info.plist").read_bytes())
 short_version = info["CFBundleShortVersionString"]
 build = info["CFBundleVersion"]
 minimum = info.get("LSMinimumSystemVersion", "13.0")
+
+dmg = pathlib.Path("build") / f"ImageShrink-{short_version}.dmg"
+if not dmg.is_file():
+    sys.exit(f"no {dmg} — run ./scripts/release.sh first")
 
 
 def published_build() -> int | None:
@@ -80,40 +85,46 @@ if verified.returncode != 0:
     sys.exit(f"the signature does not verify: {verified.stdout}{verified.stderr}")
 
 
-def release_notes_html() -> str:
-    """The changelog section for this version, as the small HTML Sparkle renders."""
+def changelog_body() -> str:
+    """The lines under this version's heading, or nothing if it has no section yet."""
     changelog = pathlib.Path("CHANGELOG.md").read_text()
     heading = re.search(r"^## %s\s+—\s+.+?$" % re.escape(short_version), changelog, re.M)
     if not heading:
-        return f"<p>Version {short_version}.</p>"
+        return ""
     body = changelog[heading.end():]
     following = re.search(r"^## ", body, re.M)
-    if following:
-        body = body[:following.start()]
+    return body[:following.start()] if following else body
 
-    def inline(text: str) -> str:
-        text = (text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;"))
-        text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
-        text = re.sub(r"`(.+?)`", r"<code>\1</code>", text)
-        return text
 
-    html, bullets = [], []
-    for block in re.split(r"\n\s*\n", body.strip()):
+def inline(text: str) -> str:
+    """Escapes the text, then the two bits of markdown the changelog actually uses."""
+    text = text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+    text = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", text)
+    return re.sub(r"`(.+?)`", r"<code>\1</code>", text)
+
+
+def bullet_items(lines: list[str]) -> list[str]:
+    """Joins wrapped continuation lines back onto the bullet they belong to."""
+    items: list[str] = []
+    for line in lines:
+        if line.startswith("- "):
+            items.append(line[2:])
+        elif items:
+            items[-1] += " " + line
+    return items
+
+
+def release_notes_html() -> str:
+    """The changelog section for this version, as the small HTML Sparkle renders."""
+    html = []
+    for block in re.split(r"\n\s*\n", changelog_body().strip()):
         lines = [line.strip() for line in block.splitlines() if line.strip()]
-        if lines and lines[0].startswith("- "):
-            joined, items = "", []
-            for line in lines:
-                if line.startswith("- "):
-                    if joined:
-                        items.append(joined)
-                    joined = line[2:]
-                else:
-                    joined += " " + line
-            if joined:
-                items.append(joined)
-            bullets = "".join(f"<li>{inline(item)}</li>" for item in items)
-            html.append(f"<ul>{bullets}</ul>")
-        elif lines:
+        if not lines:
+            continue
+        if lines[0].startswith("- "):
+            items = "".join(f"<li>{inline(item)}</li>" for item in bullet_items(lines))
+            html.append(f"<ul>{items}</ul>")
+        else:
             html.append("<p>%s</p>" % inline(" ".join(lines)))
     return "".join(html) or f"<p>Version {short_version}.</p>"
 

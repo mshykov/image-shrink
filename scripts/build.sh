@@ -19,7 +19,7 @@ echo "› compiling ($ARCHS)"
 # either way behind canImport. Without it the app opens the releases page instead of updating
 # itself — which is what a fresh checkout does until someone runs the fetch script.
 SPARKLE=""
-if [ -d vendor/sparkle/Sparkle.framework ]; then
+if [[ -d vendor/sparkle/Sparkle.framework ]]; then
     SPARKLE="vendor/sparkle"
     echo "  with Sparkle $(cat vendor/sparkle/.version)"
 fi
@@ -27,7 +27,7 @@ fi
 slices=()
 for arch in $ARCHS; do
     sparkle_flags=()
-    if [ -n "$SPARKLE" ]; then
+    if [[ -n "$SPARKLE" ]]; then
         sparkle_flags=(-F "$SPARKLE" -framework Sparkle
                        -Xlinker -rpath -Xlinker "@executable_path/../Frameworks")
     fi
@@ -58,7 +58,7 @@ export_metadata() {
         --swift-const-vals-list build/constvals.txt \
         --quiet-warnings --force "$@" >/dev/null 2>&1
 }
-if [ -x "$PROCESSOR" ]; then
+if [[ -x "$PROCESSOR" ]]; then
     ls Sources/ImageShrink/*.swift > build/sources.txt
     echo "build/const.swiftconstvalues" > build/constvals.txt
     # The processor rejects the parameter summary on some toolchain states — the same sources
@@ -83,7 +83,7 @@ cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp README.md "$APP/Contents/Resources/README.md"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
-if [ -n "$SPARKLE" ]; then
+if [[ -n "$SPARKLE" ]]; then
     echo "› embedding Sparkle"
     mkdir -p "$APP/Contents/Frameworks"
     rm -rf "$APP/Contents/Frameworks/Sparkle.framework"
@@ -107,13 +107,13 @@ fi
 # A personal Developer ID if there is one, ad-hoc otherwise. The work identity is never
 # picked: the match is on "Developer ID Application", and IMAGESHRINK_SIGN_IDENTITY wins.
 IDENTITY="${IMAGESHRINK_SIGN_IDENTITY:-}"
-if [ -z "$IDENTITY" ]; then
+if [[ -z "$IDENTITY" ]]; then
     # `|| true`, because pipefail turns "no Developer ID in this keychain" into a failed build
     # — which is every contributor's machine and every CI runner, where ad-hoc is the answer.
     IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
         | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/' || true)
 fi
-if [ -n "$IDENTITY" ]; then
+if [[ -n "$IDENTITY" ]]; then
     echo "› signing as $IDENTITY"
     HARDENED=(--options runtime --timestamp)
 else
@@ -128,11 +128,11 @@ fi
 # are unsigned, and macOS refuses to launch one whose framework was signed after the app around
 # it. Versions/Current is a symlink, so the real directory name never has to be guessed.
 FRAMEWORK="$APP/Contents/Frameworks/Sparkle.framework"
-if [ -d "$FRAMEWORK" ]; then
+if [[ -d "$FRAMEWORK" ]]; then
     CURRENT="$FRAMEWORK/Versions/Current"
     for nested in "$CURRENT/XPCServices/Downloader.xpc" "$CURRENT/XPCServices/Installer.xpc" \
                   "$CURRENT/Autoupdate" "$CURRENT/Updater.app" "$FRAMEWORK"; do
-        [ -e "$nested" ] || continue
+        [[ -e "$nested" ]] || continue
         codesign --force ${HARDENED[@]+"${HARDENED[@]}"} --sign "$IDENTITY" "$nested"
     done
 fi
