@@ -42,8 +42,8 @@ if not dmg.is_file():
     sys.exit(f"no {dmg} — run ./scripts/release.sh first")
 
 
-def published_build() -> int | None:
-    """The build number the current feed advertises, or None when there is no feed yet.
+def published_release() -> tuple[int, str] | None:
+    """The build number and version string the current feed advertises, if there is a feed.
 
     Only a 404 means "no feed". Treating a timeout or a 500 the same way would skip the version
     guard exactly when the network is unreliable, and publish an update nobody is ever offered.
@@ -59,16 +59,24 @@ def published_build() -> int | None:
     except (urllib.error.URLError, TimeoutError) as error:
         sys.exit(f"could not reach the published feed ({error}); "
                  "refusing to guess whether this build is newer")
-    found = re.search(r"<sparkle:version>(\d+)</sparkle:version>", feed)
-    return int(found.group(1)) if found else None
+    build_number = re.search(r"<sparkle:version>(\d+)</sparkle:version>", feed)
+    version_string = re.search(r"<sparkle:shortVersionString>([^<]+)</sparkle:shortVersionString>", feed)
+    if not build_number or not version_string:
+        return None
+    return int(build_number.group(1)), version_string.group(1)
 
 
-# Sparkle compares CFBundleVersion, not the version people read. Shipping a release that does
-# not raise it means nobody is ever offered the update, silently.
-previous = published_build()
-if previous is not None and int(build) <= previous:
-    sys.exit(f"CFBundleVersion is {build}, and the published feed already offers {previous} — "
-             "raise it in Resources/Info.plist, or no one will be offered this update")
+# Sparkle compares CFBundleVersion, not the version people read. A release that does not raise
+# it is one nobody is ever offered, silently. Regenerating the feed for the release that is
+# already published — to correct its notes, say — is not that, and is allowed.
+previous = published_release()
+if previous is not None:
+    previous_build, previous_version = previous
+    if int(build) < previous_build or (int(build) == previous_build
+                                       and previous_version != short_version):
+        sys.exit(f"this build is {short_version} ({build}), and the published feed already "
+                 f"offers {previous_version} ({previous_build}) — raise CFBundleVersion in "
+                 "Resources/Info.plist, or no one will be offered this update")
 
 # Signing with the wrong key produces an update every installed copy refuses — and the
 # refusal happens on the user's machine, days later, silently. Check first.
