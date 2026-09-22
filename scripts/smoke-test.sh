@@ -4,8 +4,14 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+# Rebuilt whenever a source is newer, not just when the binary is missing. It was "missing
+# only" for a long time, and the suite spent 36 hours happily testing yesterday's code.
 BIN="build/ImageShrink"
-[[ -x "$BIN" ]] || xcrun swiftc -O -o "$BIN" Sources/ImageShrink/*.swift
+newest=$(ls -t Sources/ImageShrink/*.swift | head -1)
+if [[ ! -x "$BIN" || "$newest" -nt "$BIN" ]]; then
+    echo "› compiling the test binary"
+    xcrun swiftc -O -o "$BIN" Sources/ImageShrink/*.swift
+fi
 
 WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
@@ -71,19 +77,24 @@ echo "› files already under the limit are left alone"
 out="$("$BIN" --cli --target-mb 5 "$WORK/tiny/photo-500KB.jpg")"
 [[ "$out" == *"already under the limit"* ]] || fail "small file was re-encoded: $out"
 
-echo "› odd formats: a CMYK JPEG and a 16-bit TIFF"
+echo "› odd formats: a CMYK JPEG, a 16-bit TIFF and a grayscale scan"
 xcrun swift tools/make-odd-images.swift "$WORK/odd" >/dev/null
-"$BIN" --cli --target-mb 1 --dest "$WORK/oddout" "$WORK/odd/cmyk.jpg" "$WORK/odd/deep.tiff" >/dev/null
+"$BIN" --cli --target-mb 1 --dest "$WORK/oddout" \
+    "$WORK/odd/cmyk.jpg" "$WORK/odd/deep.tiff" "$WORK/odd/gray.jpg" >/dev/null
 [[ -f "$WORK/oddout/cmyk-1MB.jpg" ]] || fail "the CMYK JPEG did not convert"
 [[ -f "$WORK/oddout/deep-1MB.jpg" ]] || fail "the 16-bit TIFF did not convert"
 for f in "$WORK/oddout"/*.jpg; do
     [[ "$(size "$f")" -le 1000000 ]] || fail "$f is over 1 MB"
 done
-# The CMYK JPEG comes out CMYK — the encoder keeps the source colour space. Asserted rather
-# than assumed, because some upload forms reject CMYK JPEGs, so the day this changes it should
-# be a deliberate change with a changelog line, not a surprise.
+# CMYK becomes sRGB: a CMYK JPEG is valid and still displays wrong, or is refused outright, in
+# much of what people upload to. Grayscale is left alone — universally understood, and three
+# times the bytes as RGB for no gain.
 space=$(sips -g space "$WORK/oddout/cmyk-1MB.jpg" | tail -1 | tr -d ' ')
-[[ "$space" = "space:CMYK" ]] || fail "CMYK output is now $space — intended? then update this test"
+[[ "$space" = "space:RGB" ]] || fail "the CMYK JPEG came out $space, not RGB"
+profile=$(sips -g profile "$WORK/oddout/cmyk-1MB.jpg" | tail -1)
+case "$profile" in *sRGB*) ;; *) fail "the converted CMYK file carries $profile" ;; esac
+gray=$(sips -g space "$WORK/oddout/gray-1MB.jpg" | tail -1 | tr -d ' ')
+[[ "$gray" = "space:Gray" ]] || fail "the grayscale scan came out $gray — it should stay gray"
 
 
 echo "› a panorama keeps its shape"

@@ -125,8 +125,13 @@ Mac, and nothing about them is sent anywhere.
 ## Formats
 
 In: HEIC/HEIF, JPEG, PNG, TIFF, GIF, WebP and camera raw — whatever ImageIO reads on this
-version of macOS. Out: always JPEG. Transparency is flattened onto white, because JPEG has no
-alpha channel; the smoke test checks that.
+version of macOS. Out: always JPEG, in sRGB.
+
+Two things are redrawn on the way out, both checked by the smoke test. Transparency is
+flattened onto white, because JPEG has no alpha channel. And a colour space that is not RGB or
+grayscale — a CMYK JPEG from a print workflow, say — is converted to sRGB, because a CMYK JPEG
+displays wrong, or is refused outright, in much of what people upload to. Grayscale stays
+grayscale: understood everywhere, and a third of the bytes.
 
 ## Presets
 

@@ -87,6 +87,27 @@ if let context = CGContext(data: nil, width: deepSize, height: deepSize, bitsPer
     }
 }
 
+// A grayscale JPEG — a scan, or a photo someone desaturated. It must stay grayscale: the
+// format is understood everywhere, and turning it into RGB would triple the bytes for nothing.
+if let gray = CGColorSpace(name: CGColorSpace.linearGray),
+   let context = CGContext(data: nil, width: 1600, height: 1600, bitsPerComponent: 8,
+                           bytesPerRow: 0, space: gray,
+                           bitmapInfo: CGImageAlphaInfo.none.rawValue) {
+    context.setFillColor(CGColor(gray: 0.15, alpha: 1))
+    context.fill(CGRect(x: 0, y: 0, width: 1600, height: 1600))
+    for row in 0..<40 {
+        for column in 0..<40 {
+            context.setFillColor(CGColor(gray: Double((row &* 5 &+ column &* 11) % 100) / 100,
+                                         alpha: 1))
+            context.fillEllipse(in: CGRect(x: column * 40, y: row * 40, width: 34, height: 26))
+        }
+    }
+    if let image = context.makeImage() {
+        write(image, to: "gray.jpg", type: .jpeg, properties:
+              [kCGImageDestinationLossyCompressionQuality: 0.9] as CFDictionary)
+    }
+}
+
 // A panorama: 8000 × 1400 is a shape that a square-ish downscale rule gets wrong.
 if let context = CGContext(data: nil, width: 8000, height: 1400, bitsPerComponent: 8,
                            bytesPerRow: 0, space: sRGB,

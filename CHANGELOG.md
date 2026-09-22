@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.2.0 — unreleased
+
+- **A CMYK original now comes out as sRGB.** A CMYK JPEG is what a print workflow hands back,
+  and it is valid — but it displays inverted or washed out in much of what people upload to,
+  when it is accepted at all. Anything that is not RGB or grayscale is redrawn in sRGB before
+  encoding. Grayscale is left alone: it is understood everywhere and would cost three times the
+  bytes as RGB.
+- The row estimates measure the same image the converter will write. They were measuring the
+  original's colour space and, for transparent PNGs, its alpha — so the numbers described a file
+  that was never going to be produced.
+
 ## 1.1.0 — 2026-09-22
 
 - **The app updates itself.** Sparkle reads a feed of releases and installs them in place,
