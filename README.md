@@ -187,8 +187,9 @@ Files are converted in parallel, one per core.
 ./scripts/smoke-test.sh     # generate test photos, convert, assert the results
 ./scripts/install.sh        # build + install app and Quick Actions
 ./scripts/uninstall.sh      # remove both, and the saved settings
-./scripts/release.sh        # universal, notarised, stapled DMG for the releases page
-./scripts/update-cask.sh    # point the Homebrew cask at the release just published
+./scripts/release.sh --publish   # build, notarise, tag, publish, update the Homebrew cask
+./scripts/release.sh             # the same build, published by hand
+./scripts/update-cask.sh         # point the cask at a release published some other way
 ./scripts/design-probe.sh   # render the window to PNGs, dark and light
 ```
 
