@@ -131,6 +131,12 @@ if [[ -d vendor/sparkle ]]; then
     python3 scripts/make-appcast.py > build/appcast.xml
     APPCAST="build/appcast.xml"
     echo "  $(grep -o 'sparkle:version>[0-9]*' build/appcast.xml | head -1 | cut -d'>' -f2) signed"
+elif [[ "$PUBLISH" -eq 1 ]]; then
+    # The feed is releases/latest/download/appcast.xml. A release published without one makes
+    # that URL 404, and every installed copy stops hearing about new versions.
+    echo "refusing: without vendor/sparkle this release carries no appcast, which strands" >&2
+    echo "every installed copy on its current version. Run ./scripts/fetch-sparkle.sh." >&2
+    exit 1
 else
     echo "› no vendor/sparkle — this build cannot update itself, and publishes no appcast"
 fi

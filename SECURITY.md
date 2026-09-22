@@ -31,10 +31,11 @@ the usual server-side surface does not exist. What does:
   executable. A way to get another path in there is a real finding.
 - **Signature and notarisation**: a release DMG that fails `spctl -a -t exec`, or an app whose
   signature does not satisfy its designated requirement.
-- **The update path**, which is the app's only network traffic. It reads a signed Sparkle feed
-  from GitHub and refuses anything its embedded public key cannot verify. A way to make it
-  accept an unsigned or differently signed update, or to point it at another feed, is the most
-  serious thing that could be found here — it would be arbitrary code on someone's Mac.
+- **The update path**, which is the app's only network traffic. It reads a Sparkle feed from
+  GitHub, and verifies the downloaded update against the `SUPublicEDKey` in its own Info.plist
+  before running anything. A way to make it accept an unsigned or differently signed update, or
+  to point it at another feed, is the most serious thing that could be found here — it would be
+  arbitrary code on someone's Mac.
 
 Metadata handling is a privacy matter rather than a vulnerability: EXIF and GPS are copied by
 default and dropped when you switch **Remove metadata** on. If you find a path where that switch

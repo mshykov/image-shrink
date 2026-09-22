@@ -94,7 +94,13 @@ jobs:
           app_build=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$app/Contents/Info.plist")
           [ "v$short" = "$TAG" ] || { echo "the feed offers $short, the tag is $TAG"; exit 1; }
           [ "$build_number" = "$app_build" ] || { echo "feed build $build_number, app build $app_build"; exit 1; }
-          grep -q 'sparkle:edSignature="' appcast.xml || { echo "the update is not signed"; exit 1; }
+          # Not "is there a signature" — does *this* signature verify against the key the app
+          # carries, over the bytes a stranger downloads. The signing script checks its own work
+          # before publication, with the private key; this checks the published result with
+          # nothing but the public one.
+          python3 -m venv /tmp/verify-venv
+          /tmp/verify-venv/bin/pip install --quiet cryptography
+          /tmp/verify-venv/bin/python scripts/verify-appcast-signature.py appcast.xml "$DMG" "$key"
           length=$(sed -n 's/.*length="\([0-9]*\)".*/\1/p' appcast.xml)
           actual=$(stat -f%z "$DMG")
           [ "$length" = "$actual" ] || { echo "the feed claims $length bytes, the DMG is $actual"; exit 1; }

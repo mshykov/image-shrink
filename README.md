@@ -111,10 +111,13 @@ away until you open a window again. Settings (⌘,) has an **Open at login** swi
 
 ## Updates
 
-The app checks a signed feed and installs new versions in place — it asks on the second launch
-whether to do that automatically, and **Check for Updates…** in its menu asks on demand. An
-update it cannot verify against its own key is refused, so the signature, not the download, is
-what is trusted. Installed through Homebrew? Then `brew upgrade` keeps it current instead.
+The app reads a feed of releases and installs them in place. Every update is signed, and the
+app refuses any download it cannot verify against the public key built into it — so the
+signature is what is trusted, not the server it came from. It asks on the second launch whether
+to check automatically, and **Check for Updates…** asks on demand.
+
+A copy installed through Homebrew updates the same way: the cask is marked `auto_updates`, so
+`brew upgrade` leaves the app to it rather than the two fighting over the same bundle.
 
 That update check is the app's only network traffic. Your images are converted entirely on your
 Mac, and nothing about them is sent anywhere.

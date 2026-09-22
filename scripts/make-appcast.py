@@ -43,12 +43,22 @@ if not dmg.is_file():
 
 
 def published_build() -> int | None:
-    """The build number the current feed advertises, if there is a feed yet."""
+    """The build number the current feed advertises, or None when there is no feed yet.
+
+    Only a 404 means "no feed". Treating a timeout or a 500 the same way would skip the version
+    guard exactly when the network is unreliable, and publish an update nobody is ever offered.
+    """
     try:
         with urllib.request.urlopen(FEED, timeout=20) as response:
             feed = response.read().decode()
-    except (urllib.error.URLError, TimeoutError):
-        return None
+    except urllib.error.HTTPError as error:
+        if error.code == 404:
+            return None
+        sys.exit(f"could not read the published feed ({error.code} {error.reason}); "
+                 "refusing to guess whether this build is newer")
+    except (urllib.error.URLError, TimeoutError) as error:
+        sys.exit(f"could not reach the published feed ({error}); "
+                 "refusing to guess whether this build is newer")
     found = re.search(r"<sparkle:version>(\d+)</sparkle:version>", feed)
     return int(found.group(1)) if found else None
 
