@@ -85,8 +85,10 @@ fi
 # picked: the match is on "Developer ID Application", and IMAGESHRINK_SIGN_IDENTITY wins.
 IDENTITY="${IMAGESHRINK_SIGN_IDENTITY:-}"
 if [ -z "$IDENTITY" ]; then
+    # `|| true`, because pipefail turns "no Developer ID in this keychain" into a failed build
+    # — which is every contributor's machine and every CI runner, where ad-hoc is the answer.
     IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
-        | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+        | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/' || true)
 fi
 if [ -n "$IDENTITY" ]; then
     echo "› signing as $IDENTITY"
