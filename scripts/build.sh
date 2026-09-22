@@ -72,8 +72,14 @@ printf 'APPL????' > "$APP/Contents/PkgInfo"
 # goes — the app writes its own path in when it installs them. They must be in place before
 # signing, or they are not covered by the signature.
 echo "› Finder actions"
-IMAGESHRINK_BIN='"@IMAGESHRINK_BINARY@"' \
-    ./scripts/make-quick-action.sh "$APP/Contents/Resources/Services" >/dev/null
+# Swallowing this step's output once cost an afternoon: it failed on a clean machine and said
+# nothing. Quiet on success, everything it printed on failure.
+if ! IMAGESHRINK_BIN='"@IMAGESHRINK_BINARY@"' \
+        ./scripts/make-quick-action.sh "$APP/Contents/Resources/Services" > build/quick-actions.log 2>&1; then
+    echo "  could not generate them:"
+    sed 's/^/    /' build/quick-actions.log
+    exit 1
+fi
 
 # A personal Developer ID if there is one, ad-hoc otherwise. The work identity is never
 # picked: the match is on "Developer ID Application", and IMAGESHRINK_SIGN_IDENTITY wins.
