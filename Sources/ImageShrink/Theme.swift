@@ -45,7 +45,11 @@ enum Theme {
 
     /// The third text tier. The system sets three — 95 / 62 / 52 % — and 52 % is the floor;
     /// SwiftUI's `.tertiary` sits below it and captions stop reading, most visibly on white.
-    static let caption = Color.primary.opacity(0.52)
+    /// 52 % measures 3.3:1 — where macOS puts its own dim labels, and under WCAG AA — so
+    /// Increase Contrast lifts the tier, the way the content panel already lightens.
+    static func caption(_ contrast: ColorSchemeContrast) -> Color {
+        Color.primary.opacity(contrast == .increased ? 0.60 : 0.52)
+    }
 
     // Type — size / weight pairs, all system font so the app follows the user's text size.
     static let display = Font.system(size: 24, weight: .semibold)

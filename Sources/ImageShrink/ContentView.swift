@@ -67,6 +67,7 @@ struct ContentView: View {
 struct TopBar: View {
     @EnvironmentObject var model: AppModel
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         HStack(spacing: Theme.normal) {
@@ -82,7 +83,7 @@ struct TopBar: View {
             if model.isRunning {
                 Text("Settings are locked while converting")
                     .font(Theme.control)
-                    .foregroundStyle(Theme.caption)
+                    .foregroundStyle(Theme.caption(contrast))
             } else {
                 Label(model.destinationSummary, systemImage: "folder")
                     .font(Theme.control)
@@ -207,6 +208,7 @@ struct LimitField: View {
 
 struct FileList: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         VStack(spacing: 0) {
@@ -241,7 +243,7 @@ struct FileList: View {
             Spacer()
             Text(hint)
                 .font(Theme.meta)
-                .foregroundStyle(Theme.caption)
+                .foregroundStyle(Theme.caption(contrast))
         }
         .padding(.horizontal, Theme.wide)
         .padding(.vertical, Theme.snug)

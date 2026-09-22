@@ -4,6 +4,7 @@ import SwiftUI
 /// L3 · floating. Everything that is not the limit lives here, one click from the window.
 struct SettingsPopover: View {
     @EnvironmentObject var model: AppModel
+    @Environment(\.colorSchemeContrast) private var contrast
 
     var body: some View {
         VStack(alignment: .leading, spacing: Theme.wide) {
@@ -101,7 +102,7 @@ struct SettingsPopover: View {
                     .fill(Color.primary.opacity(0.06)))
             Text(footnote)
                 .font(Theme.meta)
-                .foregroundStyle(Theme.caption)
+                .foregroundStyle(Theme.caption(contrast))
                 .fixedSize(horizontal: false, vertical: true)
         }
     }

@@ -168,6 +168,18 @@ with the numbers doing the talking.
   macOS uses on white; and `.tertiary` text sits below the system's 52 % floor and stops
   reading — captions use `Theme.caption` instead. The content panel is near-white with a
   hairline in light, where a translucent wash would vanish into the window.
+- **Increase Contrast cannot be captured.** SwiftUI reads the system accessibility flag
+  (`accessibilityDisplayShouldIncreaseContrast`), not the appearance, so setting
+  `NSApp.appearance` to `.accessibilityHighContrastDarkAqua` changes nothing, and
+  `colorSchemeContrast` is a get-only environment value — `.environment(\.colorSchemeContrast,
+  .increased)` does not compile. A snapshot flag for it would only lie; the branches
+  (`ContentPanel.fill`, `Theme.caption`) are verified by reading, and on screen by turning the
+  setting on in System Settings → Accessibility → Display.
+- **Measured text contrast** on the content panel, so the numbers are not re-derived: title
+  7.8:1 dark / 14.7:1 light, `.secondary` 4.3 / 3.9, `Theme.caption` 3.4 / 3.2. The lower two
+  tiers sit where macOS puts its own dim labels — under WCAG AA — which is why the caption
+  tier lifts to 60 % under Increase Contrast instead of being raised for everyone (raising it
+  would pass `.secondary` and inverse the hierarchy).
 - **Motion needs measuring, not guessing.** `--snapshot-motion <dir>` captures frames while
   the limit changes; scanning them for the accent colour showed the capsule's x position per
   frame. That is how `matchedGeometryEffect` was ruled out (already at its destination 50 ms
