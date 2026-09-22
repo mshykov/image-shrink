@@ -42,8 +42,21 @@ jobs:
           [ -n "$newest" ] && sudo xcode-select -s "$newest"
           xcodebuild -version
 
+      # Built with Sparkle, because that is the shape a release has. Without this the build
+      # compiles the no-updater branch and CI would never exercise the one that ships.
+      - name: Sparkle
+        run: ./scripts/fetch-sparkle.sh
+
       - name: Build
         run: ./scripts/build.sh
+
+      - name: The bundle is put together the way it will ship
+        run: |
+          app="build/Image Shrink.app"
+          codesign --verify --deep --strict "$app"
+          test -d "$app/Contents/Frameworks/Sparkle.framework" || { echo "Sparkle is not embedded"; exit 1; }
+          count=$(ls -d "$app/Contents/Resources/Services"/*.workflow | wc -l | tr -d ' ')
+          [ "$count" = "5" ] || { echo "expected 5 Quick Actions, found $count"; exit 1; }
 
       - name: Smoke test
         run: ./scripts/smoke-test.sh

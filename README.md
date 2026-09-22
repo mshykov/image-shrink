@@ -109,6 +109,19 @@ Most conversions never need it:
 Closing the window does not quit the app: it stays in the menu bar, and the Dock icon goes
 away until you open a window again. Settings (⌘,) has an **Open at login** switch.
 
+## Updates
+
+The app reads a feed of releases and installs them in place. Every update is signed, and the
+app refuses any download it cannot verify against the public key built into it — so the
+signature is what is trusted, not the server it came from. It asks on the second launch whether
+to check automatically, and **Check for Updates…** asks on demand.
+
+A copy installed through Homebrew updates the same way: the cask is marked `auto_updates`, so
+`brew upgrade` leaves the app to it rather than the two fighting over the same bundle.
+
+That update check is the app's only network traffic. Your images are converted entirely on your
+Mac, and nothing about them is sent anywhere.
+
 ## Formats
 
 In: HEIC/HEIF, JPEG, PNG, TIFF, GIF, WebP and camera raw — whatever ImageIO reads on this
@@ -183,6 +196,7 @@ Files are converted in parallel, one per core.
 ## Development
 
 ```bash
+./scripts/fetch-sparkle.sh  # once: Sparkle into vendor/, pinned by version and checksum
 ./scripts/build.sh          # build build/Image Shrink.app
 ./scripts/smoke-test.sh     # generate test photos, convert, assert the results
 ./scripts/install.sh        # build + install app and Quick Actions
@@ -192,6 +206,10 @@ Files are converted in parallel, one per core.
 ./scripts/update-cask.sh         # point the cask at a release published some other way
 ./scripts/design-probe.sh   # render the window to PNGs, dark and light
 ```
+
+The app compiles with or without Sparkle — `#if canImport(Sparkle)` — so a fresh checkout
+builds and runs before you fetch anything; without it, **Check for Updates…** opens the releases
+page instead of updating in place.
 
 `IMAGESHRINK_ARCHS="arm64 x86_64" ./scripts/build.sh` produces the universal binary;
 `release.sh` does that, notarises, staples and wraps it in a DMG — see

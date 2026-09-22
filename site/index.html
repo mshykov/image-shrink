@@ -240,11 +240,16 @@ footer a { color: var(--dim); }
 
     <section>
       <div class="privacy">
-        <h2>Nothing leaves your Mac</h2>
+        <h2>Your images stay on your Mac</h2>
         <p class="muted">
-          The app has no network code in it at all — no uploads, no accounts, no analytics, nothing
-          phoning home. Your photos are converted by macOS's own image encoder, on your machine.
-          The source is on GitHub if you would rather check than take my word for it.
+          No uploads, no account, no analytics. Your photos are converted by macOS's own image
+          encoder, on your machine, and nothing about them is sent anywhere.
+        </p>
+        <p class="muted">
+          The app makes exactly one kind of network request, and it has nothing to do with your
+          images: it asks GitHub whether a newer version exists. It asks your permission first,
+          on the second launch, and you can say no. The source is on GitHub if you would rather
+          check than take my word for it.
         </p>
       </div>
     </section>
@@ -266,6 +271,13 @@ footer a { color: var(--dim); }
         <summary>Where do the Finder entries come from?</summary>
         <p>The app installs them the first time you open it, and you can put them back or take them
         away from its menu at any time. Removing the app removes them with it.</p>
+      </details>
+      <details>
+        <summary>How does it update?</summary>
+        <p>It offers to check for new versions and installs them in place once you accept. Every
+        update is signed, and any update the app cannot verify against the key built into it is
+        refused. A copy installed with Homebrew updates the same way — the cask says so, and
+        <code>brew upgrade</code> leaves it alone.</p>
       </details>
       <details>
         <summary>What if a photo cannot reach the limit?</summary>

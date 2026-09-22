@@ -8,7 +8,7 @@ LSREGISTER=/System/Library/Frameworks/CoreServices.framework/Frameworks/LaunchSe
 
 # /Applications when the account can write there (admins can), otherwise the user's own.
 APP_DIR="${IMAGESHRINK_APP_DIR:-/Applications}"
-if [ ! -w "$APP_DIR" ]; then
+if [[ ! -w "$APP_DIR" ]]; then
     echo "note: $APP_DIR is not writable, installing into ~/Applications instead"
     APP_DIR="$HOME/Applications"
 fi
@@ -21,7 +21,7 @@ echo "› installing app into $APP_DIR"
 osascript -e 'quit app id "dev.shykov.imageshrink"' 2>/dev/null || true
 # Only one copy may exist: the Finder actions call the binary by path.
 for old in "/Applications/Image Shrink.app" "$HOME/Applications/Image Shrink.app"; do
-    [ "$old" = "$APP_DIR/Image Shrink.app" ] || rm -rf "$old"
+    [[ "$old" = "$APP_DIR/Image Shrink.app" ]] || rm -rf "$old"
 done
 rm -rf "$APP_DIR/Image Shrink.app"
 cp -R "build/Image Shrink.app" "$APP_DIR/"
