@@ -1,0 +1,55 @@
+name: Something went wrong
+description: A conversion that failed, a menu entry that never appeared, a file that came out wrong
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you got instead.
+      placeholder: |
+        I selected four HEIC photos, pressed ⌃⌘J, and nothing happened.
+    validations:
+      required: true
+  - type: input
+    id: version
+    attributes:
+      label: Image Shrink version
+      description: The app menu → About Image Shrink.
+      placeholder: "1.0.0"
+    validations:
+      required: true
+  - type: input
+    id: macos
+    attributes:
+      label: macOS version and Mac
+      placeholder: "macOS 15.2, MacBook Air M2"
+    validations:
+      required: true
+  - type: dropdown
+    id: source
+    attributes:
+      label: Where the app came from
+      options:
+        - The DMG from a release
+        - Homebrew (brew install --cask)
+        - Built from source
+    validations:
+      required: true
+  - type: textarea
+    id: file
+    attributes:
+      label: The file, if one is involved
+      description: >
+        Format, pixel size, file size, and where it came from (iPhone, a scanner, a download).
+        Please do not attach a photo you would not post publicly — the format matters, the
+        picture does not.
+      placeholder: "HEIC, 4032 × 3024, 2.1 MB, straight off an iPhone 14"
+  - type: textarea
+    id: log
+    attributes:
+      label: The log
+      description: >
+        The app keeps a short trail at `~/Library/Logs/ImageShrink.log`. The last few lines are
+        usually enough, and they are the first thing that explains a Quick Action doing nothing.
+      render: text
