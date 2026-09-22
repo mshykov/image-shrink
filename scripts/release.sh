@@ -25,7 +25,7 @@ for argument in "$@"; do
         *) echo "unknown option $argument" >&2; exit 2 ;;
     esac
 done
-if [ "$PUBLISH" -eq 1 ] && [ "$NOTARIZE" -eq 0 ]; then
+if [[ "$PUBLISH" -eq 1 && "$NOTARIZE" -eq 0 ]]; then
     echo "refusing: --publish with --skip-notarize would publish what Gatekeeper rejects" >&2
     exit 2
 fi
@@ -37,10 +37,10 @@ DMG="build/ImageShrink-${VERSION}.dmg"
 NOTES=""
 
 # Publishing has preconditions worth failing on before a five-minute build.
-if [ "$PUBLISH" -eq 1 ]; then
-    [ -z "$(git status --porcelain)" ] || { echo "refusing: the working tree is dirty" >&2; exit 1; }
+if [[ "$PUBLISH" -eq 1 ]]; then
+    [[ -z "$(git status --porcelain)" ]] || { echo "refusing: the working tree is dirty" >&2; exit 1; }
     git fetch -q origin main
-    if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+    if [[ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]]; then
         echo "refusing: HEAD is not origin/main — a release comes from merged work" >&2
         exit 1
     fi
@@ -48,7 +48,7 @@ if [ "$PUBLISH" -eq 1 ]; then
     # written up, and a release nobody can read is worse than a late one.
     NOTES=$(mktemp)
     trap 'rm -f "$NOTES" "${NOTES}.full"' EXIT
-    python3 scripts/changelog-section.py "$VERSION" "$NOTES"
+    python3 scripts/changelog-section.py "$VERSION" > "$NOTES"
 fi
 
 echo "› building ${VERSION} (${BUILD}), both architectures"
@@ -85,7 +85,7 @@ notarize() {
     fi
 }
 
-if [ "$NOTARIZE" -eq 1 ]; then
+if [[ "$NOTARIZE" -eq 1 ]]; then
     echo "› notarising the app"
     ditto -c -k --keepParent "$APP" build/ImageShrink.zip
     notarize build/ImageShrink.zip
@@ -104,13 +104,13 @@ hdiutil create -volname "Image Shrink" -srcfolder "$STAGE" -ov -format UDZO "$DM
 rm -rf "$STAGE"
 
 IDENTITY="${IMAGESHRINK_SIGN_IDENTITY:-}"
-if [ -z "$IDENTITY" ]; then
+if [[ -z "$IDENTITY" ]]; then
     IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
         | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/' || true)
 fi
 codesign --force --sign "$IDENTITY" "$DMG"
 
-if [ "$NOTARIZE" -eq 1 ]; then
+if [[ "$NOTARIZE" -eq 1 ]]; then
     echo "› notarising the disk image"
     notarize "$DMG"
     # A stapled DMG opens cleanly on a Mac that is offline.
@@ -120,13 +120,13 @@ fi
 echo
 echo "› what Gatekeeper sees"
 spctl -a -vvv -t exec "$APP" 2>&1 | sed 's/^/  /' || true
-[ "$NOTARIZE" -eq 1 ] && xcrun stapler validate "$DMG" 2>&1 | sed 's/^/  /'
+[[ "$NOTARIZE" -eq 1 ]] && xcrun stapler validate "$DMG" 2>&1 | sed 's/^/  /'
 
 echo
 echo "$DMG"
 echo "  $(du -h "$DMG" | cut -f1)  sha256 $(shasum -a 256 "$DMG" | cut -d' ' -f1)"
 
-if [ "$PUBLISH" -eq 0 ]; then
+if [[ "$PUBLISH" -eq 0 ]]; then
     echo
     echo "Next: ./scripts/release.sh --publish, or attach it to the v${VERSION} release by hand."
     exit 0

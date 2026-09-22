@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Writes one version's CHANGELOG entry to a file, for use as release notes.
+"""Prints one version's CHANGELOG entry, for use as release notes.
+
+It writes to stdout on purpose: taking an output path as an argument means a caller can steer
+a file write, which is both a real hazard and something static analysis is right to flag.
 
 Kept out of release.sh because a Python heredoc inside a shell heredoc is how this repo has
 already lost a script once: the inner terminator ends the outer block.
@@ -8,10 +11,10 @@ import pathlib
 import re
 import sys
 
-if len(sys.argv) != 3:
-    sys.exit("usage: changelog-section.py <version> <output-file>")
+if len(sys.argv) != 2:
+    sys.exit("usage: changelog-section.py <version>   # prints the section to stdout")
 
-version, output = sys.argv[1], sys.argv[2]
+version = sys.argv[1]
 try:
     changelog = pathlib.Path("CHANGELOG.md").read_text()
 except FileNotFoundError:
@@ -32,4 +35,4 @@ body = body.strip()
 if not body:
     sys.exit(f"the {version} section is empty; a release with no notes is not a release")
 
-pathlib.Path(output).write_text(body + "\n")
+print(body)
