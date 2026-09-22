@@ -92,9 +92,24 @@ drag-to-Applications symlink. It prints what Gatekeeper sees and the SHA-256 for
 cask.
 
 ```bash
-./scripts/release.sh                  # the real thing
+./scripts/release.sh --publish        # the whole release, one command
+./scripts/release.sh                  # build and notarise, publish by hand
 ./scripts/release.sh --skip-notarize  # a DMG for local testing, Gatekeeper will complain
 ```
+
+`--publish` refuses to start unless the tree is clean, `HEAD` is `origin/main`, and
+`CHANGELOG.md` has a **dated** section for this version — the release notes are that section,
+so an unwritten changelog stops the release instead of producing an empty one. It then tags,
+creates the GitHub release with the DMG attached, and runs `update-cask.sh`.
+
+**Why the release is cut on this Mac and not on a runner:** doing it in CI means the Developer
+ID certificate and its private key live in GitHub secrets, and a leak there is someone else's
+malware signed with your name — Apple's answer to which is revoking the certificate.
+`.github/workflows/verify-release.yml` covers the other half: it pulls every published release
+back down on a clean runner and checks it the way Gatekeeper will — stapled ticket, `spctl`
+accepting it as a Notarized Developer ID, universal binary, the version matching the tag, five
+Quick Actions inside the bundle still carrying the path placeholder, and a Homebrew cask
+recording exactly those bytes.
 
 ### 1.5 Test it the way a stranger receives it
 
