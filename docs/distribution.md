@@ -134,12 +134,17 @@ live at `https://mshykov.github.io/image-shrink/`. What it has, and what still n
   The screenshots on the page are offscreen renders of the real window; a recording of it in
   use converts better and only you can capture one.
 
-**Homebrew cask** — the developer audience installs this way and it costs nothing to maintain.
-Requirements that matter: the download must be the developer's own published URL (GitHub
-Releases qualifies), it must pass Gatekeeper (so notarisation first), and new casks need
-demonstrable public interest — [Acceptable Casks](https://docs.brew.sh/Acceptable-Casks) is
-explicit that recent apps are considered only with "substantial, independently verifiable
-public interest". Submit after the launch traffic, not before.
+**Homebrew** — already live, in the personal tap that carries `local-review`:
+`brew install --cask mshykov/tap/image-shrink`. `scripts/update-cask.sh` points it at a new
+release: it downloads the published asset, refuses unless those bytes match the DMG on disk, and
+pushes the version and checksum to `mshykov/homebrew-tap`. It runs with your own `gh`
+credentials, so no token sits in CI waiting to leak.
+
+Submitting to **homebrew-cask** proper — where `brew install --cask image-shrink` works with no
+tap — is a separate step, and one to take after the launch traffic rather than before:
+[Acceptable Casks](https://docs.brew.sh/Acceptable-Casks) is explicit that recent apps are
+considered only with "substantial, independently verifiable public interest". The requirements
+we already satisfy: the developer's own published URL, and passing Gatekeeper.
 
 **Mac App Store — skip it.** The sandbox cannot write `.workflow` bundles into
 `~/Library/Services` or touch the `pbs` domain, which is the entire Finder integration. It

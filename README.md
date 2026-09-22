@@ -36,6 +36,12 @@ bigger than the one you gave it.
 
 ## Install
 
+**With Homebrew**
+
+```bash
+brew install --cask mshykov/tap/image-shrink
+```
+
 **From a release** — download the DMG, drag the app to Applications, open it once. The first
 launch installs the Finder Quick Actions itself, switches them on and reloads Finder: nothing
 to enable by hand in Customize…. The app menu has **Reinstall Finder Actions** if they ever go
@@ -182,6 +188,7 @@ Files are converted in parallel, one per core.
 ./scripts/install.sh        # build + install app and Quick Actions
 ./scripts/uninstall.sh      # remove both, and the saved settings
 ./scripts/release.sh        # universal, notarised, stapled DMG for the releases page
+./scripts/update-cask.sh    # point the Homebrew cask at the release just published
 ./scripts/design-probe.sh   # render the window to PNGs, dark and light
 ```
 
