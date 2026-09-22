@@ -279,6 +279,11 @@ plain name and the names changed from run to run.
   "Developer ID Application" (Maksym Shykov, 64HRGLZCS4) and falls back to ad-hoc when there
   is none. `IMAGESHRINK_SIGN_IDENTITY` overrides it. A release goes through `release.sh`,
   which notarises and staples — a downloaded copy is refused by Gatekeeper without that.
+- **Everything goes through a pull request.** `main` rejects direct pushes for everyone,
+  owner included — branch (`fix/`, `feat/`, `docs/`), push, open the PR, let the `build` check
+  pass, squash-merge, branch deleted. The ruleset also requires signed commits, linear history
+  and resolved conversation threads. A change that cannot be described in a PR body is a change
+  that has not been thought through yet.
 - **Never `git add -A` here.** `_do-not-commit/` holds the App Store Connect key and is
   ignored, but an ignore rule is one `-f` or one careless rewrite away from failing: stage the
   paths you meant to change and read `git status` before committing. This is not hypothetical —
