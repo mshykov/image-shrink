@@ -1,10 +1,33 @@
+<div align="center">
+
+<img src="site/logo.png" alt="" width="120" height="120">
+
 # Image Shrink
 
-A small macOS app that converts HEIC, JPEG, PNG and anything else macOS can read (TIFF, GIF,
-WebP, camera raw) to JPEG **under a size limit you pick at conversion time** — 1 MB, 2 MB, whatever. Built for the case where a phone photo is
-8 MB and the form you are uploading it to accepts 2.
+**Right-click a photo in Finder and get a JPEG under the size limit you pick.**
+
+[![Download](https://img.shields.io/github/v/release/mshykov/image-shrink?display_name=tag&label=download&color=0a6fe8&style=flat-square)](https://github.com/mshykov/image-shrink/releases/latest)
+[![Downloads](https://img.shields.io/github/downloads/mshykov/image-shrink/total?label=downloads&color=8a8a8e&style=flat-square)](https://github.com/mshykov/image-shrink/releases)
+[![macOS 13+](https://img.shields.io/badge/macOS-13%2B-8a8a8e?style=flat-square)](https://github.com/mshykov/image-shrink/releases/latest)
+[![Universal](https://img.shields.io/badge/universal-Apple%20silicon%20%2B%20Intel-8a8a8e?style=flat-square)](https://github.com/mshykov/image-shrink/releases/latest)
+[![MIT](https://img.shields.io/github/license/mshykov/image-shrink?label=license&color=8a8a8e&style=flat-square)](LICENSE)
+
+[**Website**](https://mshykov.github.io/image-shrink/) · [Releases](https://github.com/mshykov/image-shrink/releases) · [Changelog](CHANGELOG.md)
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="site/shot-dark.png">
+  <img src="site/shot-light.png" alt="The Image Shrink window: a size-limit picker, a list of images, and the size each one will come out at" width="820">
+</picture>
+
+</div>
+
+Your phone shoots 8 MB photos; the form you are uploading to takes 2. Image Shrink converts
+HEIC, JPEG, PNG and anything else macOS can read (TIFF, GIF, WebP, camera raw) to JPEG **under a
+size limit you pick at conversion time** — and never hands you a file bigger than the one you
+gave it.
 
 Right-click images in Finder → **Quick Actions → Convert to JPEG** → set the limit → convert.
+Or press ⌃⌘J and skip the window entirely.
 
 ## Install
 
@@ -206,3 +229,11 @@ Drag the app to the Trash — or, to take the Finder entries away and keep the a
 It removes the app, every Quick Action this project ever installed (whatever it was called at
 the time), their entries in the services preferences, and the saved settings. `install.sh`
 runs the same cleanup first, so reinstalling never leaves stale menu items behind.
+
+---
+
+<div align="center">
+
+Made by UA 🇺🇦 · [MIT](LICENSE)
+
+</div>
