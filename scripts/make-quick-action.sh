@@ -301,10 +301,16 @@ make_workflow "$OUT/Convert to JPEG Now.workflow" \
     "${BIN} --cli --saved --quiet \"\$@\""
 
 # One action per preset, straight from the list the app itself defines.
+presets=$("$LOCAL_BIN" --cli --list-presets) || {
+    echo "the binary could not list its presets — is everything it links inside the bundle?" >&2
+    exit 1
+}
+[ -n "$presets" ] || { echo "the preset list came back empty" >&2; exit 1; }
+
 while IFS=$'\t' read -r id title detail; do
     [ -n "$id" ] || continue
     make_workflow "$OUT/$title.workflow" \
         "dev.shykov.imageshrink.preset.$id" \
         "$title" \
         "${BIN} --cli --preset $id --quiet \"\$@\""
-done < <("$LOCAL_BIN" --cli --list-presets)
+done <<< "$presets"

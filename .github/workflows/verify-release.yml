@@ -76,6 +76,30 @@ jobs:
             esac
           done
 
+      - name: The appcast is signed and points at this release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern 'appcast.xml' --dir .
+          cat appcast.xml
+          app="$MOUNT/Image Shrink.app"
+          key=$(/usr/libexec/PlistBuddy -c "Print :SUPublicEDKey" "$app/Contents/Info.plist")
+          [ -n "$key" ] || { echo "the app carries no SUPublicEDKey"; exit 1; }
+          feed=$(/usr/libexec/PlistBuddy -c "Print :SUFeedURL" "$app/Contents/Info.plist")
+          [ "$feed" = "https://github.com/$GITHUB_REPOSITORY/releases/latest/download/appcast.xml" ] \
+            || { echo "the app reads $feed"; exit 1; }
+          # What the feed offers has to be this build, and its enclosure has to be these bytes.
+          short=$(sed -n 's:.*<sparkle:shortVersionString>\(.*\)</sparkle:shortVersionString>.*:\1:p' appcast.xml)
+          build_number=$(sed -n 's:.*<sparkle:version>\(.*\)</sparkle:version>.*:\1:p' appcast.xml)
+          app_build=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$app/Contents/Info.plist")
+          [ "v$short" = "$TAG" ] || { echo "the feed offers $short, the tag is $TAG"; exit 1; }
+          [ "$build_number" = "$app_build" ] || { echo "feed build $build_number, app build $app_build"; exit 1; }
+          grep -q 'sparkle:edSignature="' appcast.xml || { echo "the update is not signed"; exit 1; }
+          length=$(sed -n 's/.*length="\([0-9]*\)".*/\1/p' appcast.xml)
+          actual=$(stat -f%z "$DMG")
+          [ "$length" = "$actual" ] || { echo "the feed claims $length bytes, the DMG is $actual"; exit 1; }
+          grep -q "releases/download/$TAG/" appcast.xml || { echo "the enclosure points elsewhere"; exit 1; }
+
       - name: The Homebrew cask points at these bytes
         run: |
           published=$(shasum -a 256 "$DMG" | cut -d' ' -f1)

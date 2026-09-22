@@ -122,6 +122,19 @@ echo "› what Gatekeeper sees"
 spctl -a -vvv -t exec "$APP" 2>&1 | sed 's/^/  /' || true
 [[ "$NOTARIZE" -eq 1 ]] && xcrun stapler validate "$DMG" 2>&1 | sed 's/^/  /'
 
+# The appcast is what installed copies read. It is signed with the EdDSA key in this Mac's
+# keychain, travels as a release asset, and is generated after the DMG is final — a signature
+# over bytes that later change is worse than none.
+APPCAST=""
+if [ -d vendor/sparkle ]; then
+    echo "› appcast"
+    python3 scripts/make-appcast.py "$DMG" > build/appcast.xml
+    APPCAST="build/appcast.xml"
+    echo "  $(grep -o 'sparkle:version>[0-9]*' build/appcast.xml | head -1 | cut -d'>' -f2) signed"
+else
+    echo "› no vendor/sparkle — this build cannot update itself, and publishes no appcast"
+fi
+
 echo
 echo "$DMG"
 echo "  $(du -h "$DMG" | cut -f1)  sha256 $(shasum -a 256 "$DMG" | cut -d' ' -f1)"
@@ -152,11 +165,13 @@ echo "› GitHub release"
     echo "macOS 13 or newer · universal (Apple silicon and Intel) · signed with a Developer ID"
     echo "and notarised by Apple."
 } > "${NOTES}.full"
+assets=("${DMG}#Image Shrink ${VERSION} (universal, notarised)")
+[ -n "$APPCAST" ] && assets+=("${APPCAST}#Sparkle appcast")
 if gh release view "v${VERSION}" >/dev/null 2>&1; then
-    gh release upload "v${VERSION}" "$DMG" --clobber
+    gh release upload "v${VERSION}" "$DMG" ${APPCAST:+"$APPCAST"} --clobber
     gh release edit "v${VERSION}" --notes-file "${NOTES}.full"
 else
-    gh release create "v${VERSION}" "${DMG}#Image Shrink ${VERSION} (universal, notarised)" \
+    gh release create "v${VERSION}" "${assets[@]}" \
         --title "Image Shrink ${VERSION}" --notes-file "${NOTES}.full"
 fi
 

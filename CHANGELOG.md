@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.1.0 — unreleased
+
+- **The app updates itself.** Sparkle checks a signed feed and installs new versions in place;
+  it asks on the second launch whether to do that automatically, and the answer is yours to
+  change in its dialog. Copies installed through Homebrew keep updating with `brew upgrade`.
+- This is the first version that makes any network connection at all, and the only one it makes:
+  the update check, to GitHub. Images are still converted entirely on your Mac.
+
 ## 1.0.0 — 2026-09-22
 
 The first public build.

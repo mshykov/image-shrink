@@ -19,9 +19,18 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>1.0.0</string>
+	<string>1.1.0</string>
+	<!-- Sparkle compares this, not the version people read: it must rise every release. -->
 	<key>CFBundleVersion</key>
-	<string>1</string>
+	<string>2</string>
+	<!-- Sparkle: the appcast lives with the releases, so a new version needs no repository
+	     push. The public key's private half is in the release Mac's keychain, and an update
+	     Sparkle cannot verify against it is refused. Automatic checks are deliberately not
+	     enabled here — Sparkle asks on the second launch, and the answer is the user's. -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/mshykov/image-shrink/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>4At3SlHOTpLJdmBPVeH4Awh8hdw114vrU+iVJiQPakg=</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>NSHighResolutionCapable</key>
