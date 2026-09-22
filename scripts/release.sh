@@ -1,22 +1,55 @@
 #!/usr/bin/env bash
-# Builds the universal, signed, notarised DMG that goes on the releases page.
+# Builds the universal, signed, notarised DMG that goes on the releases page, and with
+# --publish takes it the rest of the way: tag, GitHub release, Homebrew cask.
 #
-# Notarising needs credentials in the keychain once, with an app-specific password from
-# appleid.apple.com — never a password in a file:
+#   ./scripts/release.sh                  build and notarise, stop there
+#   ./scripts/release.sh --publish        …then tag, publish and update the cask
+#   ./scripts/release.sh --skip-notarize  a DMG for local testing; Gatekeeper will refuse it
+#
+# The signing certificate never leaves this Mac — that is why releases are cut here rather than
+# on a runner. What a stranger downloads is checked afterwards by CI, in verify-release.yml.
+#
+# Notarising needs credentials in the keychain once, from an app-specific password or an App
+# Store Connect key — never a password in a file:
 #   xcrun notarytool store-credentials image-shrink --apple-id <id> --team-id 64HRGLZCS4
-# Without them, --skip-notarize still produces a DMG for local testing; it is not something
-# anyone else's Mac will open without a Gatekeeper warning.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PROFILE="${IMAGESHRINK_NOTARY_PROFILE:-image-shrink}"
 NOTARIZE=1
-[ "${1:-}" = "--skip-notarize" ] && NOTARIZE=0
+PUBLISH=0
+for argument in "$@"; do
+    case "$argument" in
+        --skip-notarize) NOTARIZE=0 ;;
+        --publish) PUBLISH=1 ;;
+        *) echo "unknown option $argument" >&2; exit 2 ;;
+    esac
+done
+if [ "$PUBLISH" -eq 1 ] && [ "$NOTARIZE" -eq 0 ]; then
+    echo "refusing: --publish with --skip-notarize would publish what Gatekeeper rejects" >&2
+    exit 2
+fi
 
 APP="build/Image Shrink.app"
 VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" Resources/Info.plist)
 BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" Resources/Info.plist)
 DMG="build/ImageShrink-${VERSION}.dmg"
+NOTES=""
+
+# Publishing has preconditions worth failing on before a five-minute build.
+if [ "$PUBLISH" -eq 1 ]; then
+    [ -z "$(git status --porcelain)" ] || { echo "refusing: the working tree is dirty" >&2; exit 1; }
+    git fetch -q origin main
+    if [ "$(git rev-parse HEAD)" != "$(git rev-parse origin/main)" ]; then
+        echo "refusing: HEAD is not origin/main — a release comes from merged work" >&2
+        exit 1
+    fi
+    # The release notes are the changelog entry. An undated one means the release was never
+    # written up, and a release nobody can read is worse than a late one.
+    NOTES=$(mktemp)
+    trap 'rm -f "$NOTES" "${NOTES}.full"' EXIT
+    python3 scripts/changelog-section.py "$VERSION" "$NOTES"
+fi
 
 echo "› building ${VERSION} (${BUILD}), both architectures"
 IMAGESHRINK_ARCHS="arm64 x86_64" ./scripts/build.sh
@@ -64,16 +97,16 @@ fi
 
 echo "› disk image"
 STAGE=$(mktemp -d)
-trap 'rm -rf "$STAGE"' EXIT
 cp -R "$APP" "$STAGE/"
 ln -s /Applications "$STAGE/Applications"
 rm -f "$DMG"
 hdiutil create -volname "Image Shrink" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+rm -rf "$STAGE"
 
 IDENTITY="${IMAGESHRINK_SIGN_IDENTITY:-}"
 if [ -z "$IDENTITY" ]; then
     IDENTITY=$(security find-identity -v -p codesigning 2>/dev/null \
-        | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/')
+        | grep "Developer ID Application" | head -1 | sed 's/.*"\(.*\)"/\1/' || true)
 fi
 codesign --force --sign "$IDENTITY" "$DMG"
 
@@ -92,6 +125,44 @@ spctl -a -vvv -t exec "$APP" 2>&1 | sed 's/^/  /' || true
 echo
 echo "$DMG"
 echo "  $(du -h "$DMG" | cut -f1)  sha256 $(shasum -a 256 "$DMG" | cut -d' ' -f1)"
+
+if [ "$PUBLISH" -eq 0 ]; then
+    echo
+    echo "Next: ./scripts/release.sh --publish, or attach it to the v${VERSION} release by hand."
+    exit 0
+fi
+
 echo
-echo "Next: attach it to the v${VERSION} release, then check it the way a stranger receives it —"
-echo "download it in Safari on another Mac or a fresh account, and open it there."
+echo "› tag v${VERSION}"
+if git rev-parse "v${VERSION}" >/dev/null 2>&1; then
+    echo "  already exists"
+else
+    git tag -a "v${VERSION}" -m "Image Shrink ${VERSION}"
+fi
+git push -q origin "v${VERSION}"
+
+echo "› GitHub release"
+{
+    cat "$NOTES"
+    echo
+    echo "**Install:** \`brew install --cask mshykov/tap/image-shrink\`, or open the DMG and drag"
+    echo "the app to Applications. Open it once — the first launch installs the Finder Quick"
+    echo "Actions and the shortcut."
+    echo
+    echo "macOS 13 or newer · universal (Apple silicon and Intel) · signed with a Developer ID"
+    echo "and notarised by Apple."
+} > "${NOTES}.full"
+if gh release view "v${VERSION}" >/dev/null 2>&1; then
+    gh release upload "v${VERSION}" "$DMG" --clobber
+    gh release edit "v${VERSION}" --notes-file "${NOTES}.full"
+else
+    gh release create "v${VERSION}" "${DMG}#Image Shrink ${VERSION} (universal, notarised)" \
+        --title "Image Shrink ${VERSION}" --notes-file "${NOTES}.full"
+fi
+
+echo "› Homebrew cask"
+./scripts/update-cask.sh
+
+echo
+echo "Published: https://github.com/mshykov/image-shrink/releases/tag/v${VERSION}"
+echo "CI checks what a stranger downloads: gh run list --workflow=verify-release.yml"

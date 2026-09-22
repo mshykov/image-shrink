@@ -1,0 +1,101 @@
+# Checks what a stranger downloads, not what the release machine believes it built.
+#
+# Releases are cut locally (scripts/release.sh --publish) so the signing certificate never
+# leaves that Mac. This is the other half of that trade: every published release is pulled back
+# down on a clean runner and checked the way Gatekeeper will check it.
+name: verify-release
+
+on:
+  release:
+    types: [published, edited]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to verify (e.g. v1.0.0)"
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+
+      - name: Download the published disk image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag || github.event.release.tag_name }}
+        run: |
+          echo "TAG=$TAG" >> "$GITHUB_ENV"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --pattern '*.dmg' --dir .
+          ls -la ./*.dmg
+          echo "DMG=$(ls ./*.dmg | head -1)" >> "$GITHUB_ENV"
+
+      - name: The ticket is stapled
+        run: xcrun stapler validate "$DMG"
+
+      - name: Gatekeeper accepts the app inside
+        run: |
+          mountpoint=$(hdiutil attach -nobrowse -readonly "$DMG" | grep -o '/Volumes/.*' | tail -1)
+          echo "MOUNT=$mountpoint" >> "$GITHUB_ENV"
+          app="$mountpoint/Image Shrink.app"
+          spctl -a -vvv -t exec "$app" 2>&1 | tee /tmp/spctl.txt
+          grep -q "source=Notarized Developer ID" /tmp/spctl.txt
+          codesign --verify --deep --strict "$app"
+          xcrun stapler validate "$app"
+
+      - name: Universal, and the version matches the tag
+        run: |
+          app="$MOUNT/Image Shrink.app"
+          archs=$(lipo -archs "$app/Contents/MacOS/ImageShrink")
+          echo "$archs"
+          case "$archs" in
+            *arm64*x86_64*|*x86_64*arm64*) ;;
+            *) echo "not universal: $archs"; exit 1 ;;
+          esac
+          version=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$app/Contents/Info.plist")
+          [ "v$version" = "$TAG" ] || { echo "app says $version, tag says $TAG"; exit 1; }
+
+      - name: The Finder actions travel inside the bundle
+        run: |
+          app="$MOUNT/Image Shrink.app"
+          count=$(ls -d "$app/Contents/Resources/Services"/*.workflow 2>/dev/null | wc -l | tr -d ' ')
+          [ "$count" = "5" ] || { echo "expected 5 Quick Actions, found $count"; exit 1; }
+          # Each one must still carry the placeholder: a baked-in path would point at whatever
+          # machine built the release, on everyone else's Mac.
+          for workflow in "$app/Contents/Resources/Services"/*.workflow; do
+            command=$(plutil -extract actions.0.action.ActionParameters.COMMAND_STRING raw -o - \
+              "$workflow/Contents/document.wflow")
+            case "$command" in
+              *@IMAGESHRINK_BINARY@*|"open -b dev.shykov.imageshrink"*) ;;
+              *) echo "$(basename "$workflow") carries a real path: $command"; exit 1 ;;
+            esac
+          done
+
+      - name: The Homebrew cask points at these bytes
+        run: |
+          published=$(shasum -a 256 "$DMG" | cut -d' ' -f1)
+          curl -fsSL --proto '=https' --proto-redir '=https' \
+            https://raw.githubusercontent.com/mshykov/homebrew-tap/main/Casks/image-shrink.rb -o cask.rb
+          cask_version=$(sed -n 's/^  version "\(.*\)"/\1/p' cask.rb)
+          cask_sha=$(sed -n 's/^  sha256 "\(.*\)"/\1/p' cask.rb)
+          echo "release $TAG / $published"
+          echo "cask    v$cask_version / $cask_sha"
+          # Only the newest release has to match; an older tag being re-verified does not.
+          latest=$(gh release view --repo "$GITHUB_REPOSITORY" --json tagName --jq .tagName)
+          if [ "$TAG" = "$latest" ]; then
+            [ "v$cask_version" = "$TAG" ] || { echo "the cask still points at v$cask_version"; exit 1; }
+            [ "$cask_sha" = "$published" ] || { echo "the cask records a different checksum"; exit 1; }
+          else
+            echo "not the latest release, skipping the cask comparison"
+          fi
+        env:
+          GH_TOKEN: ${{ github.token }}
+
+      - name: Unmount
+        if: always()
+        run: hdiutil detach "$MOUNT" >/dev/null 2>&1 || true
