@@ -1,7 +1,8 @@
 # Distributing Image Shrink
 
-How this app gets from `build/` onto other people's Macs, and how they find out it exists.
-Written 2026-09-22; the state section below is measured, not assumed.
+How this app gets from `build/` onto other people's Macs: what a release has to satisfy, how
+`release.sh` satisfies it, and where the result is published. Written 2026-09-22; the state
+section below is measured, not assumed. (Pricing and the launch plan are not in this repo.)
 
 ## 0. Where the build stands today
 
@@ -154,73 +155,6 @@ update frameworks disabled, and no version number in the app name or bundle id.
 that way), MacUpdate, and the small launch boards (Uneed, DevHunt, Microlaunch, Tiny Launch).
 Low effort, slow trickle, good for backlinks.
 
-## 3. Free or paid
-
-- **Free and open source** is the right call for v1.0. It is a single-purpose utility competing
-  with free web converters; the reach and the goodwill are worth more than the first $200, and
-  r/macapps and Hacker News are markedly kinder to it.
-- If it gets traction, the money is in **Setapp** (recurring, no support burden of payments) or
-  a small one-time licence through a merchant of record — Lemon Squeezy, Paddle or Gumroad —
-  which matters from Ukraine because they handle VAT and invoicing for you. Do not build your
-  own Stripe checkout for a $7 app.
-- Keep the free version complete either way. A crippled free tier on a utility this small reads
-  as hostile.
-
-## 4. Launch sequence
-
-**T-7 — the things a stranger needs.** Repo public with LICENSE and a README GIF; notarised
-universal DMG tested on a clean Mac; site live; support email; changelog.
-
-**T-3 — the assets.** A 20-second video (the pain first: mail rejects the attachment), three
-screenshots in both appearances, a 1280×800 OG image, and the one-sentence description reused
-everywhere: *"Right-click any photo in Finder and get a JPEG under the size limit you pick."*
-
-**T-1 — the posts are already written** and live outside the repository, in
-`_do-not-commit/launch-copy.md`: Show HN title and first comment, the Product Hunt tagline and
-description, the r/macapps post, the social posts, the pitch email, and the shot list for the
-recording. Read them once in your own voice and cut anything that sounds like someone else.
-
-**T-0, a Tuesday–Thursday.**
-- **Product Hunt** goes live at 00:01 PT automatically — there is no later slot — and the first
-  four hours carry the most weight, with upvote counts hidden. You may ask people to *look*,
-  never to upvote; coordinated voting is detected and punished. Answer every comment.
-- **Show HN** the same morning, US East hours. Plain title, no adjectives:
-  `Show HN: Image Shrink – right-click a photo in Finder, get a JPEG under 2 MB`. Say in the
-  first comment why it exists and what it does not do. Stay for the whole day and answer the
-  criticism straight — that is what the audience is actually judging.
-
-**T+1 onwards, one channel a day** — spreading it out beats one loud day:
-r/macapps (its rules, below), r/MacOS, r/SideProject, r/opensource, Mastodon and Bluesky with
-the video, Indie Hackers, then the directories.
-
-**Ongoing, and this is the channel that keeps paying:** people ask "how do I get this photo
-under 2 MB" constantly on Ask Different, the MacRumors forums, Apple Support Communities and
-Quora. Answer the question properly first, mention the app as the author, once. Point the site
-at the same phrasing — "HEIC to JPEG under 2 MB on Mac", "compress photo for upload macOS" —
-because that is the search that brings people a year later.
-
-**Writers worth one short email each:** MacStories, Six Colors, 9to5Mac, MacRumors, Michael
-Tsai. Two sentences, the link, the video, no press release.
-
-## 5. The rules that get posts removed
-
-- **r/macapps:** self-promotion once per 30 days per developer, counted from your last app post
-  even if it was removed; main-feed promotion needs their PCP template; you must disclose that
-  you are the developer; links must be the official source with no URL shorteners; and you need
-  10 karma in the subreddit before promoting your app in comments.
-- **r/apple:** self-promotion is effectively not allowed. Do not spend a post there.
-- **Hacker News:** `Show HN:` prefix, no marketing voice, never ask for upvotes, and do not
-  post the same project twice in a short window.
-- **Product Hunt:** asking for upvotes anywhere — DMs, groups, Slack — risks the launch.
-
-## 6. Measuring it
-
-Privacy-friendly analytics on the site only (Plausible or Umami), never in the app: the
-"nothing leaves your Mac" claim is the strongest thing the app has and one telemetry ping
-destroys it. Download counts come from the GitHub releases API, referrers from the site.
-
-Sources:
-[Acceptable Casks](https://docs.brew.sh/Acceptable-Casks) ·
+Sources: [Acceptable Casks](https://docs.brew.sh/Acceptable-Casks) ·
 [Setapp app requirements](https://docs.setapp.com/docs/preparing-your-application-for-setapp) ·
-[Preparing for a Product Hunt launch](https://www.producthunt.com/launch/preparing-for-launch) ·
 [Sparkle](https://sparkle-project.org)
