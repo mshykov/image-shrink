@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="Image Shrink">
+  <defs>
+    <linearGradient id="plate" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#5A94FF"/>
+      <stop offset="1" stop-color="#7847F2"/>
+    </linearGradient>
+  </defs>
+  <rect x="41" y="41" width="430" height="430" rx="112" fill="url(#plate)"/>
+  <rect x="120" y="154" width="271" height="205" rx="31" fill="none" stroke="#fff" stroke-width="23"/>
+  <path d="M120 343 L223 231 L316 343 Z" fill="#fff" opacity="0.95"/>
+  <circle cx="317" cy="214" r="18" fill="#fff" opacity="0.95"/>
+  <circle cx="367" cy="370" r="77" fill="#fff"/>
+  <g stroke="#6B5CF5" stroke-width="20" stroke-linecap="round" stroke-linejoin="round" fill="none">
+    <path d="M367 333 L367 400"/>
+    <path d="M340 373 L367 402 L393 373"/>
+  </g>
+</svg>

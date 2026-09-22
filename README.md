@@ -8,14 +8,21 @@ Right-click images in Finder → **Quick Actions → Convert to JPEG** → set t
 
 ## Install
 
+**From a release** — download the DMG, drag the app to Applications, open it once. The first
+launch installs the Finder Quick Actions itself, switches them on and reloads Finder: nothing
+to enable by hand in Customize…. The app menu has **Reinstall Finder Actions** if they ever go
+missing, and **Remove Finder Actions…** to take them away again.
+
+**From source**
+
 ```bash
 ./scripts/install.sh
 ```
 
-That builds the app, removes anything an earlier install left behind, installs it to
-`~/Applications/Image Shrink.app`, installs both Finder Quick Actions into
-`~/Library/Services/`, switches them on and restarts Finder. No Xcode
-project, no admin password, nothing to enable by hand in Customize….
+That builds the app, removes anything an earlier install left behind, installs it into
+`/Applications` (or `~/Applications` if that is not writable), and then has the app install its
+own Quick Actions — the same path a downloaded copy takes, so this tests it rather than
+bypassing it. No Xcode project, no admin password.
 
 If a menu entry still does not appear, log out and back in once — Finder caches its services
 list.
@@ -36,9 +43,8 @@ to that folder. That prompt is macOS, once per folder.
 The shortcut is set in the app: click the keys in the window's banner, or Settings → Finder
 shortcut, and press the combination you want. Esc keeps the current one, Delete removes it.
 
-The shortcut works on a Finder selection without opening any menu. Change it in System
-Settings → Keyboard → Keyboard Shortcuts → Services, or edit `SHORTCUT` in
-`scripts/install.sh` and run it again.
+The shortcut works on a Finder selection without opening any menu, and it survives a
+reinstall. System Settings → Keyboard → Keyboard Shortcuts → Services shows the same entry.
 
 **By hand** — open the app from `~/Applications` and drag files onto the window, or use
 Add Files.
@@ -145,9 +151,16 @@ Files are converted in parallel, one per core.
 ```bash
 ./scripts/build.sh          # build build/Image Shrink.app
 ./scripts/smoke-test.sh     # generate test photos, convert, assert the results
-./scripts/install.sh        # build + install app and Quick Action
+./scripts/install.sh        # build + install app and Quick Actions
 ./scripts/uninstall.sh      # remove both, and the saved settings
+./scripts/release.sh        # universal, notarised, stapled DMG for the releases page
+./scripts/design-probe.sh   # render the window to PNGs, dark and light
 ```
+
+`IMAGESHRINK_ARCHS="arm64 x86_64" ./scripts/build.sh` produces the universal binary;
+`release.sh` does that, notarises, staples and wraps it in a DMG — see
+[docs/distribution.md](docs/distribution.md). The landing page is `site/`, published to GitHub
+Pages by `.github/workflows/pages.yml`.
 
 The app writes a short trail to `~/Library/Logs/ImageShrink.log` — that is the first place to
 look if the Quick Action seems to do nothing.
@@ -182,6 +195,9 @@ produces the same names. Originals are never overwritten unless you ask for it i
   preference keys; change it in all of them together or the menu entries stop working.
 
 ## Uninstall
+
+Drag the app to the Trash — or, to take the Finder entries away and keep the app, use
+**Remove Finder Actions…** in its menu. From a checkout:
 
 ```bash
 ./scripts/uninstall.sh

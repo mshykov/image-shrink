@@ -1,7 +1,7 @@
 # Distributing Image Shrink
 
 How this app gets from `build/` onto other people's Macs, and how they find out it exists.
-Written 2026-09-22 against commit `64e424c`; the state section below is measured, not assumed.
+Written 2026-09-22; the state section below is measured, not assumed.
 
 ## 0. Where the build stands today
 
@@ -9,53 +9,44 @@ Written 2026-09-22 against commit `64e424c`; the state section below is measured
 | --- | --- |
 | Signature | `Developer ID Application: Maksym Shykov (64HRGLZCS4)`, hardened runtime (`flags=0x10000`), secure timestamp present — notarisation-ready |
 | Certificate | valid to 1 Feb 2027, so the Developer Program membership is active (notarisation needs it) |
-| Notarised | **no** — every other Mac will refuse the app with "Apple could not verify…" |
-| Architecture | `lipo -archs` → `arm64` **only** — will not launch on any Intel Mac |
-| Finder actions | installed by `scripts/install.sh`, i.e. **only for people who clone the repo** |
+| Architecture | universal — `lipo -archs` → `x86_64 arm64`, and the Intel slice was run under Rosetta |
+| Finder actions | installed by the app itself on first launch, verified from a clean state |
+| DMG | `scripts/release.sh` builds, signs and wraps it; 3.3 MB |
+| Notarised | **not yet** — needs credentials only you can enter, and `spctl` still says `Unnotarized Developer ID` |
 | Version | `1.0.0` (build `1`), minimum macOS 13.0 |
-| Updates | none |
-| Repo | local only, no remote, no `LICENSE` |
+| Updates | "Check for Updates" opens the releases page; no appcast yet |
+| Repo | local only, no remote — the site and the download links assume `github.com/mshykov/image-shrink` |
 
-Three of those are release blockers. They are section 1.
+What is left is section 1.3 (notarise), publishing the repo, and turning the Pages site on.
 
 ## 1. Make the build shippable
 
-### 1.1 The app must install its own Finder actions (biggest gap)
+### 1.1 The app installs its own Finder actions — done
 
-Everything the app is *for* — the Quick Actions, the ⌃⌘J hotkey — is installed by a shell
-script in this repo: `scripts/install.sh` writes the `.workflow` bundles into
-`~/Library/Services`, flips them on in the `pbs` preference domain and restarts Finder.
-Someone who downloads a DMG runs none of that, so they get a window-only app with no
-right-click entry and no shortcut.
+Everything the app is *for* — the Quick Actions, the ⌃⌘J hotkey — used to be installed by
+`scripts/install.sh`, so a downloaded copy would have arrived as a window with no right-click
+entry and no shortcut. `Services.swift` now does it from inside the app:
 
-What has to change:
+- `build.sh` generates the five `.workflow` bundles into `Contents/Resources/Services/` before
+  signing, with `@IMAGESHRINK_BINARY@` where the executable path goes — a download can sit
+  anywhere, and a Quick Action calls the app by path.
+- The first launch copies them into `~/Library/Services`, writes its own path into each one,
+  switches them on in the `pbs` domain and reloads Finder. It repeats that whenever the app
+  moves or updates, which is what the stored `version + path` stamp is for.
+- **Reinstall Finder Actions** and **Remove Finder Actions…** in the app menu, and
+  `--install-services` / `--uninstall-services` for scripts.
+- A recorded shortcut survives: the installer reads it back before rewriting the entries.
 
-- `scripts/make-quick-action.sh` output moves into the bundle at build time —
-  `Contents/Resources/Services/*.workflow`.
-- On first launch (and behind a **Install / repair Finder actions** menu item), the app copies
-  those into `~/Library/Services`, writes the `NSServicesStatus` entries and runs `pbs -flush`.
-  The code for all of that already exists in `Shortcut.swift` and the install script; it needs
-  to move into the app.
-- An **uninstall** item that removes them again. A downloaded app has no `scripts/uninstall.sh`.
-- The bundled workflows must be signed — they are inside the app bundle, so they are covered
-  by the app's signature, but they have to be in place *before* `codesign` runs.
+Verified from a clean state — actions removed, stamp cleared, app launched: five actions
+installed, the shortcut preserved, `automator -i` ran one end to end, and other apps' services
+were left alone.
 
-Until this is done, do not ship: the first review will be "the right-click menu never appeared",
-which is exactly the bug that took the longest to fix locally.
+### 1.2 Universal binary — done
 
-### 1.2 Universal binary
-
-`build.sh` compiles for `$(uname -m)`. Intel Macs (and Rosetta users) get nothing. Build both
-and merge:
-
-```bash
-for arch in arm64 x86_64; do xcrun swiftc -O -wmo -target "$arch-apple-macos13.0" -o "build/bin-$arch" Sources/ImageShrink/*.swift; done
-```
-
-then `lipo -create build/bin-arm64 build/bin-x86_64 -output "$APP/Contents/MacOS/ImageShrink"`,
-and sign **after** the lipo. Keep the `-emit-const-values-path` and `-const-gather-protocols-file`
-flags on one of the two passes — that file is what the Shortcuts metadata is extracted from, and
-one architecture's copy is enough. Verify with `lipo -archs` before every release.
+`IMAGESHRINK_ARCHS="arm64 x86_64" ./scripts/build.sh` compiles both and `lipo`s them together
+before signing; `release.sh` passes it and refuses to continue if the result is not universal.
+The const-values file for the Shortcuts metadata comes from the first architecture — one
+copy describes them all. The Intel slice was checked by running it under Rosetta.
 
 ### 1.3 Notarise and staple
 
@@ -80,19 +71,18 @@ If it is rejected, `xcrun notarytool log <submission-id> --keychain-profile imag
 why. The usual causes are a missing hardened runtime (we have it) and a missing secure
 timestamp (we have that too).
 
-### 1.4 Ship a DMG
+### 1.4 Ship a DMG — done, `scripts/release.sh`
 
-A ZIP works, but a DMG is what Mac users expect, and it survives being re-hosted:
+One command does the whole thing: universal build, the signature checks (Developer ID, secure
+timestamp, hardened runtime — it refuses rather than producing something that cannot be
+notarised), notarisation of the app and of the disk image, stapling both, and a DMG with the
+drag-to-Applications symlink. It prints what Gatekeeper sees and the SHA-256 for a Homebrew
+cask.
 
 ```bash
-hdiutil create -volname "Image Shrink" -srcfolder "build/Image Shrink.app" -ov -format UDZO build/ImageShrink-1.0.0.dmg
-codesign --force --sign "Developer ID Application: Maksym Shykov (64HRGLZCS4)" build/ImageShrink-1.0.0.dmg
-xcrun notarytool submit build/ImageShrink-1.0.0.dmg --keychain-profile image-shrink --wait
-xcrun stapler staple build/ImageShrink-1.0.0.dmg
+./scripts/release.sh                  # the real thing
+./scripts/release.sh --skip-notarize  # a DMG for local testing, Gatekeeper will complain
 ```
-
-Notarise and staple the DMG as well as the app — a stapled DMG opens cleanly even offline.
-`create-dmg` adds the drag-to-Applications background if you want it to look finished.
 
 ### 1.5 Test it the way a stranger receives it
 
@@ -120,18 +110,17 @@ the credibility all at once, and Homebrew requires a URL the developer publishes
 `LICENSE` (MIT is the default for this kind of utility), push to `mshykov/image-shrink`, attach
 the notarised DMG to each tagged release.
 
-**A one-page site** (GitHub Pages or Vercel), because Reddit and Hacker News links to a bare
-repo convert far worse:
+**A one-page site** — it is built, in `site/`, and `.github/workflows/pages.yml` publishes it
+to GitHub Pages on push. Turn Pages on in the repo settings (source: GitHub Actions) and it goes
+live at `https://mshykov.github.io/image-shrink/`. What it has, and what still needs a human:
 
-- the sentence the app exists for — a phone photo is 8 MB, the form accepts 2;
-- a 15–20 second screen recording of the right-click → limit → done flow, autoplaying, muted;
-- one download button, plus `brew install --cask image-shrink` once that lands;
-- requirements (macOS 13+, Apple silicon and Intel), size, price;
-- the privacy line, which is a real selling point against every web converter: **images never
-  leave the Mac, there is no network code in the app at all**;
-- changelog, support email, uninstall instructions.
-- The favicon / apple-touch-icon / manifest checklist in `~/.claude/CLAUDE.md` applies to this
-  page — all six `<head>` lines, or iOS shows a globe.
+- the sentence the app exists for, the three steps, the feature grid, the privacy block and a
+  short FAQ; icons, manifest, OG card and JSON-LD are all in place (the six-line icon checklist
+  in `~/.claude/CLAUDE.md` is satisfied);
+- **you need to add**: a support email in the footer — an issue tracker alone puts off
+  non-developers — and a 15–20 second screen recording of the right-click → limit → done flow.
+  The screenshots on the page are offscreen renders of the real window; a recording of it in
+  use converts better and only you can capture one.
 
 **Homebrew cask** — the developer audience installs this way and it costs nothing to maintain.
 Requirements that matter: the download must be the developer's own published URL (GitHub

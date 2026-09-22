@@ -281,7 +281,9 @@ PLIST
 
 # Where the actions will find the app. install.sh passes the folder it installed into.
 APP_DIR="${IMAGESHRINK_APP_DIR:-/Applications}"
-BIN="\"${APP_DIR}/Image Shrink.app/Contents/MacOS/ImageShrink\""
+# build.sh passes a placeholder instead: the actions ship inside the bundle and the app fills
+# in the path it is actually running from, wherever the download ended up.
+BIN="${IMAGESHRINK_BIN:-\"${APP_DIR}/Image Shrink.app/Contents/MacOS/ImageShrink\"}"
 LOCAL_BIN="build/Image Shrink.app/Contents/MacOS/ImageShrink"
 [ -x "$LOCAL_BIN" ] || LOCAL_BIN="build/ImageShrink"
 

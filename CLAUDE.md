@@ -6,9 +6,10 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 ## Build and test
 
 ```bash
-./scripts/build.sh        # swiftc → build/Image Shrink.app (ad-hoc signed)
+./scripts/build.sh        # swiftc → build/Image Shrink.app (Developer ID, or ad-hoc)
 ./scripts/smoke-test.sh   # end-to-end: generates photos, converts, asserts sizes
-./scripts/install.sh      # build + install into ~/Applications and ~/Library/Services
+./scripts/install.sh      # build + install into /Applications, then the app installs its actions
+./scripts/release.sh      # universal + notarised + stapled DMG (see docs/distribution.md)
 ```
 
 - **There is no Xcode project and there should not be one.** `scripts/build.sh` compiles the
@@ -16,6 +17,16 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
   as text and buildable in one command.
 - **Always compile with `xcrun swiftc`, never bare `swiftc`.** This machine has swiftly on
   `PATH` with an older toolchain (5.9); `xcrun` resolves Xcode's current one.
+- **A release is universal, a development build is not.** `IMAGESHRINK_ARCHS="arm64 x86_64"`
+  makes `build.sh` compile both and `lipo` them together before signing; the default is the
+  host's architecture, because the loop is faster that way. `release.sh` refuses to continue if
+  the binary is not universal — an arm64-only build cannot start on an Intel Mac at all.
+- **The App Intents export can refuse the parameter summary.** `appintentsmetadataprocessor`
+  rejected `static var parameterSummary` as "computed or dynamic" on the same sources, same
+  toolchain, that it had exported cleanly hours earlier — reproduced down to a five-line
+  intent, so it is the environment and not the code. `build.sh` retries with
+  `--force-metadata-output`, which ships the action without its summary sentence and says so.
+  A build that prints that note still has a working Shortcuts action.
 - Run `./scripts/smoke-test.sh` before committing anything that touches the engine. It is the
   only test there is, and it covers the size ceiling, the forced downscale, the resolution cap
   and the skip path.
@@ -43,15 +54,25 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
 | `Sources/ImageShrink/Settings.swift` | App-level preferences (sound, notification, pinned instant preset). |
 | `Sources/ImageShrink/SettingsView.swift` | The ⌘, window. |
 | `Sources/ImageShrink/Intents.swift` | The Shortcuts action (App Intents). |
+| `Sources/ImageShrink/Services.swift` | Installs the Finder Quick Actions from inside the app. |
+| `site/` | The landing page, published to GitHub Pages by `.github/workflows/pages.yml`. |
 | `Resources/appintents-protocols.json` | Protocol list the const-value extractor gathers. |
 | `Resources/Info.plist` | Bundle metadata, the `NSServices` entry, document types. |
-| `scripts/make-quick-action.sh` | Generates both Automator `.workflow` bundles as plain plist XML. |
+| `scripts/make-quick-action.sh` | Generates the Automator `.workflow` bundles as plain plist XML; `build.sh` puts them in the app. |
+| `scripts/release.sh` | Universal build, notarisation, stapling, DMG, checksum. |
 | `scripts/lib.sh` | Removing earlier installs and pruning their services preferences. |
 | `tools/make-icon.swift` | Draws the icon at every size; there is no source art to keep. |
 | `tools/make-alpha-image.swift`, `tools/corner-pixel.swift` | Fixtures for the PNG transparency test. |
 
 ## Things that bite
 
+- **The Quick Actions live inside the app bundle and are installed by the app.** They are
+  generated into `Contents/Resources/Services/` *before* `codesign`, with
+  `@IMAGESHRINK_BINARY@` where the executable path goes: a downloaded app can sit anywhere and
+  a Quick Action calls it by path, so `Services.swift` rewrites the placeholder at install
+  time. Do not move that generation after signing, and do not put an absolute path in the
+  template. `scripts/install.sh` deliberately goes through the same code (`--install-services`)
+  rather than copying the workflows itself, so the path a stranger takes is the tested one.
 - **Concurrency and output names.** Workers run in parallel, so checking the disk for a free
   name is not enough — two files converted at once both see it free. Every output name must
   come from `NameReserver`. This was a real bug: two sources collapsed into one file.

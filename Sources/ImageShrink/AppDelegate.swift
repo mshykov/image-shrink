@@ -3,6 +3,9 @@ import SwiftUI
 
 @MainActor
 final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
+    /// Where "Check for Updates" goes until there is an appcast to subscribe to.
+    static let releases = URL(string: "https://github.com/mshykov/image-shrink/releases/latest")!
+
     private let model = AppModel()
     private var window: NSWindow?
     private var settingsWindow: NSWindow?
@@ -11,6 +14,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
+        installServicesIfNeeded()
         let menuBar = MenuBarController(model: model) { [weak self] in self?.showWindow() }
         menuBar.install()
         self.menuBar = menuBar
@@ -60,6 +64,52 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.setActivationPolicy(.regular)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+    }
+
+    /// A downloaded app has no install script to run, so it puts its own Quick Actions in
+    /// place — on the first launch, and again whenever it moves or updates.
+    private func installServicesIfNeeded() {
+        guard Services.needsInstall else { return }
+        DispatchQueue.global(qos: .utility).async {
+            guard Services.install() > 0 else { return }
+            Services.restartFinder()
+        }
+    }
+
+    @objc func reinstallServices(_ sender: Any?) {
+        let installed = Services.install()
+        Services.restartFinder()
+        let alert = NSAlert()
+        if installed > 0 {
+            alert.messageText = "Finder actions installed"
+            alert.informativeText = """
+                \(installed) Quick Actions are in the right-click menu, under Quick Actions. \
+                Finder was relaunched so it picks them up.
+                """
+        } else {
+            alert.alertStyle = .warning
+            alert.messageText = "No Finder actions to install"
+            alert.informativeText = "This copy of the app was built without them."
+        }
+        alert.runModal()
+    }
+
+    @objc func removeServices(_ sender: Any?) {
+        let alert = NSAlert()
+        alert.messageText = "Remove the Finder actions?"
+        alert.informativeText = """
+            The right-click entries and the shortcut go away. The app stays, and this menu \
+            puts them back.
+            """
+        alert.addButton(withTitle: "Remove")
+        alert.addButton(withTitle: "Cancel")
+        guard alert.runModal() == .alertFirstButtonReturn else { return }
+        Services.uninstall()
+        Services.restartFinder()
+    }
+
+    @objc func checkForUpdates(_ sender: Any?) {
+        NSWorkspace.shared.open(Self.releases)
     }
 
     @objc func showSettings(_ sender: Any?) {
@@ -146,8 +196,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         let appItem = NSMenuItem()
         let appMenu = NSMenu()
         appMenu.addItem(withTitle: "About Image Shrink", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "Check for Updates", action: #selector(checkForUpdates(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
         appMenu.addItem(withTitle: "Settings…", action: #selector(showSettings(_:)), keyEquivalent: ",")
+        appMenu.addItem(withTitle: "Reinstall Finder Actions", action: #selector(reinstallServices(_:)), keyEquivalent: "")
+        appMenu.addItem(withTitle: "Remove Finder Actions…", action: #selector(removeServices(_:)), keyEquivalent: "")
         appMenu.addItem(.separator())
         let servicesItem = NSMenuItem(title: "Services", action: nil, keyEquivalent: "")
         let servicesMenu = NSMenu(title: "Services")

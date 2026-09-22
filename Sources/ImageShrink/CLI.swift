@@ -20,6 +20,8 @@ enum CLI {
       --no-skip          re-encode even if the file is already under the limit
       --preset <id>      use a named preset (see --list-presets)
       --list-presets     print the presets, tab separated, for the installer
+      --install-services   install the Finder Quick Actions and exit
+      --uninstall-services remove them and exit
       --saved            start from the settings the app window last used
       --quiet            print only failures, and post a notification instead
       --notify           post a completion notification
@@ -96,6 +98,20 @@ enum CLI {
                 settings.skipSmallEnough = false
             case "--saved":
                 break
+            case "--install-services":
+                let installed = Services.install()
+                guard installed > 0 else {
+                    FileHandle.standardError.write(Data("no Quick Actions in this build\n".utf8))
+                    return 1
+                }
+                Services.restartFinder()
+                print("installed \(installed) Quick Actions into \(Services.folder.path)")
+                return 0
+            case "--uninstall-services":
+                Services.uninstall()
+                Services.restartFinder()
+                print("removed the Quick Actions")
+                return 0
             case "--list-presets":
                 for preset in Preset.all {
                     print("\(preset.id)\t\(preset.menuTitle)\t\(preset.detail)")

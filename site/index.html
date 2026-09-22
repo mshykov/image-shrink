@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Shrink — a JPEG under your size limit, from Finder</title>
+<meta name="description" content="Right-click a photo in Finder on your Mac and get a JPEG under the size limit you pick — 500 KB, 1 MB, 2 MB or your own. HEIC, PNG, JPEG, TIFF and raw. Free, open source, and nothing leaves your Mac.">
+<link rel="canonical" href="https://mshykov.github.io/image-shrink/">
+
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="alternate icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="logo.png">
+<meta name="apple-mobile-web-app-title" content="Image Shrink">
+<meta name="theme-color" content="#5A94FF">
+<link rel="manifest" href="manifest.json">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="Image Shrink — a JPEG under your size limit, from Finder">
+<meta property="og:description" content="Right-click a photo in Finder, pick a limit, get a JPEG that fits. Nothing leaves your Mac.">
+<meta property="og:url" content="https://mshykov.github.io/image-shrink/">
+<meta property="og:image" content="https://mshykov.github.io/image-shrink/og.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "Image Shrink",
+  "applicationCategory": "MultimediaApplication",
+  "operatingSystem": "macOS 13 or newer",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "description": "Converts HEIC, PNG, JPEG and other images to a JPEG under a size limit you pick, from Finder's right-click menu."
+}
+</script>
+
+<style>
+:root {
+  color-scheme: light dark;
+  --bg: #ffffff;
+  --panel: #f5f6f8;
+  --text: #16181c;
+  --dim: rgba(22, 24, 28, 0.66);
+  --faint: rgba(22, 24, 28, 0.5);
+  --line: rgba(22, 24, 28, 0.1);
+  --accent: #0a6fe8;
+  --accent-text: #ffffff;
+  --radius: 16px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --bg: #0f1113;
+    --panel: #17191d;
+    --text: #f2f3f5;
+    --dim: rgba(242, 243, 245, 0.68);
+    --faint: rgba(242, 243, 245, 0.52);
+    --line: rgba(255, 255, 255, 0.1);
+    --accent: #3c8dff;
+  }
+}
+:root[data-theme="dark"] {
+  --bg: #0f1113;
+  --panel: #17191d;
+  --text: #f2f3f5;
+  --dim: rgba(242, 243, 245, 0.68);
+  --faint: rgba(242, 243, 245, 0.52);
+  --line: rgba(255, 255, 255, 0.1);
+  --accent: #3c8dff;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font: 17px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+.wrap { max-width: 880px; margin: 0 auto; padding: 0 16px; }
+a { color: var(--accent); }
+
+header { padding: 28px 0 8px; }
+header .wrap { display: flex; align-items: center; gap: 12px; }
+header img { width: 36px; height: 36px; border-radius: 9px; }
+header strong { font-size: 17px; font-weight: 600; }
+header nav { margin-left: auto; font-size: 15px; }
+header nav a { color: var(--dim); text-decoration: none; }
+header nav a:hover { color: var(--text); }
+
+.hero { padding: 40px 0 8px; }
+h1 { font-size: clamp(30px, 6vw, 46px); line-height: 1.12; letter-spacing: -0.02em; margin: 0 0 16px; }
+.lead { font-size: clamp(18px, 2.6vw, 21px); color: var(--dim); margin: 0 0 28px; max-width: 34em; }
+.actions { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+.button {
+  display: inline-block; background: var(--accent); color: var(--accent-text);
+  text-decoration: none; font-weight: 600; padding: 13px 22px; border-radius: 999px;
+}
+.button:hover { filter: brightness(1.08); }
+.button.secondary { background: transparent; color: var(--text); border: 1px solid var(--line); }
+code.brew {
+  display: inline-block; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 8px; padding: 10px 14px; font-size: 14px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.requirements { color: var(--faint); font-size: 14px; margin-top: 16px; }
+
+section { padding: 44px 0; }
+h2 { font-size: 24px; letter-spacing: -0.01em; margin: 0 0 20px; }
+h3 { font-size: 17px; margin: 0 0 6px; }
+p { margin: 0 0 14px; }
+.muted { color: var(--dim); }
+
+.steps { display: grid; gap: 16px; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); }
+.step { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 18px; }
+.step span { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px;
+  border-radius: 8px; background: var(--accent); color: var(--accent-text); font-size: 14px;
+  font-weight: 600; margin-bottom: 10px; }
+.step p { margin: 0; color: var(--dim); font-size: 15px; }
+
+figure { margin: 0; }
+figure img { width: 100%; height: auto; border-radius: var(--radius); border: 1px solid var(--line); display: block; }
+figcaption { color: var(--faint); font-size: 14px; margin-top: 10px; }
+
+.features { display: grid; gap: 18px; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); }
+.features p { color: var(--dim); font-size: 15px; margin: 0; }
+
+.privacy { background: var(--panel); border: 1px solid var(--line); border-radius: var(--radius); padding: 22px; }
+.privacy h2 { margin-bottom: 10px; }
+.privacy p:last-child { margin-bottom: 0; }
+
+details { border-top: 1px solid var(--line); padding: 14px 0; }
+details summary { cursor: pointer; font-weight: 600; list-style: none; }
+details summary::-webkit-details-marker { display: none; }
+details summary::before { content: "＋ "; color: var(--faint); }
+details[open] summary::before { content: "－ "; }
+details p { color: var(--dim); font-size: 15px; margin: 10px 0 0; }
+
+footer { border-top: 1px solid var(--line); padding: 28px 0 56px; color: var(--faint); font-size: 14px; }
+footer a { color: var(--dim); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <img src="logo.png" alt="">
+    <strong>Image Shrink</strong>
+    <nav><a href="https://github.com/mshykov/image-shrink">GitHub</a></nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <h1>Your photo is 8&nbsp;MB. The upload takes 2.</h1>
+    <p class="lead">
+      Right-click any image in Finder, pick a size limit, and get a JPEG that fits — named for the
+      size it actually came out at. HEIC, PNG, JPEG, TIFF, WebP and camera raw all go in.
+    </p>
+    <div class="actions">
+      <a class="button" href="https://github.com/mshykov/image-shrink/releases/latest">Download for macOS</a>
+      <code class="brew">brew install --cask image-shrink</code>
+    </div>
+    <p class="requirements">macOS 13 or newer · Apple silicon and Intel · free and open source</p>
+  </div>
+
+  <div class="wrap">
+    <section>
+      <h2>Three steps, no window if you don't want one</h2>
+      <div class="steps">
+        <div class="step">
+          <span>1</span>
+          <h3>Right-click in Finder</h3>
+          <p>Select any number of images, then Quick Actions → Convert to JPEG.</p>
+        </div>
+        <div class="step">
+          <span>2</span>
+          <h3>Pick the limit</h3>
+          <p>500 KB, 1, 2 or 5 MB, or type your own. Every file shows what it will come out at before you convert.</p>
+        </div>
+        <div class="step">
+          <span>3</span>
+          <h3>It lands next to the original</h3>
+          <p>IMG_7301.HEIC becomes IMG_7301-2MB.jpg in the same folder. The original stays where it is.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <figure>
+        <picture>
+          <source srcset="shot-dark.png" media="(prefers-color-scheme: dark)">
+          <img src="shot-light.png" alt="The Image Shrink window: a size-limit picker, a list of images, and the size each one will come out at.">
+        </picture>
+        <figcaption>Six photos, a 2 MB limit, and what each one will weigh before anything is written.</figcaption>
+      </figure>
+    </section>
+
+    <section>
+      <h2>What it does that a web converter cannot</h2>
+      <div class="features">
+        <div>
+          <h3>Never bigger than the original</h3>
+          <p>A 1.2 MB HEIC does not come out as a 2 MB JPEG just because the limit allows it.</p>
+        </div>
+        <div>
+          <h3>A shortcut with no window</h3>
+          <p>Select files, press the key you chose, and they are converted with your last settings. No app to open.</p>
+        </div>
+        <div>
+          <h3>Presets in the same menu</h3>
+          <p>Email 2 MB, Web 1 MB, Messenger 500 KB — each one its own right-click entry.</p>
+        </div>
+        <div>
+          <h3>Batches with real estimates</h3>
+          <p>Change the limit and every row re-estimates in place, so you see the result before committing to it.</p>
+        </div>
+        <div>
+          <h3>Your metadata, your call</h3>
+          <p>Dates and EXIF are kept by default, or stripped — including GPS — with one switch.</p>
+        </div>
+        <div>
+          <h3>Undo, and Shortcuts</h3>
+          <p>One click puts a batch back. There is a Shortcuts action too, for the automations you already have.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="privacy">
+        <h2>Nothing leaves your Mac</h2>
+        <p class="muted">
+          The app has no network code in it at all — no uploads, no accounts, no analytics, nothing
+          phoning home. Your photos are converted by macOS's own image encoder, on your machine.
+          The source is on GitHub if you would rather check than take my word for it.
+        </p>
+      </div>
+    </section>
+
+    <section>
+      <h2>Questions</h2>
+      <details>
+        <summary>Does it touch my originals?</summary>
+        <p>No. The converted copy is written next to the original, and the original is left alone
+        unless you switch on "Move originals to Trash" yourself.</p>
+      </details>
+      <details>
+        <summary>Where do the Finder entries come from?</summary>
+        <p>The app installs them the first time you open it, and you can put them back or take them
+        away from its menu at any time. Removing the app removes them with it.</p>
+      </details>
+      <details>
+        <summary>What if a photo cannot reach the limit?</summary>
+        <p>It scales the image down rather than turning it to mush, and tells you which files were
+        resized. A file already under the limit is left as it is.</p>
+      </details>
+      <details>
+        <summary>Intel Macs?</summary>
+        <p>Yes — the download is a universal build, and works on macOS 13 and newer.</p>
+      </details>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a href="https://github.com/mshykov/image-shrink">Source</a> ·
+    <a href="https://github.com/mshykov/image-shrink/releases">Releases</a> ·
+    <a href="https://github.com/mshykov/image-shrink/issues">Report a problem</a>
+    <!-- Add a support email here before launch; an issue tracker alone puts off non-developers. -->
+    <p>Made in Kyiv. MIT licensed.</p>
+  </div>
+</footer>
+
+</body>
+</html>

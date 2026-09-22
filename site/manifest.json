@@ -1,0 +1,24 @@
+{
+  "name": "Image Shrink",
+  "short_name": "Image Shrink",
+  "description": "Right-click a photo in Finder and get a JPEG under the size limit you pick. HEIC, PNG, JPEG and more, converted on your Mac.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "minimal-ui",
+  "background_color": "#0f1113",
+  "theme_color": "#5A94FF",
+  "icons": [
+    {
+      "src": "logo.png",
+      "sizes": "any",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

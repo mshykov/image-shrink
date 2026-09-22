@@ -6,24 +6,30 @@ cd "$(dirname "$0")/.."
 APP="build/Image Shrink.app"
 ARCH="$(uname -m)"
 DEPLOYMENT_TARGET="13.0"
+# Both architectures for a release, the host's alone for the edit-build-look loop.
+ARCHS="${IMAGESHRINK_ARCHS:-$ARCH}"
 
 rm -rf "$APP"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-echo "› compiling ($ARCH)"
+echo "› compiling ($ARCHS)"
 # -wmo is required for -emit-const-values-path to produce anything, and that file is what
-# the App Intents metadata below is extracted from.
-xcrun swiftc -O -wmo -target "${ARCH}-apple-macos${DEPLOYMENT_TARGET}" \
-    -emit-const-values-path build/const.swiftconstvalues \
-    -Xfrontend -const-gather-protocols-file -Xfrontend Resources/appintents-protocols.json \
-    -o "$APP/Contents/MacOS/ImageShrink" \
-    Sources/ImageShrink/*.swift
+# the App Intents metadata below is extracted from. One architecture's copy describes them all.
+slices=()
+for arch in $ARCHS; do
+    xcrun swiftc -O -wmo -target "${arch}-apple-macos${DEPLOYMENT_TARGET}" \
+        -emit-const-values-path "build/const-${arch}.swiftconstvalues" \
+        -Xfrontend -const-gather-protocols-file -Xfrontend Resources/appintents-protocols.json \
+        -o "build/ImageShrink-${arch}" \
+        Sources/ImageShrink/*.swift
+    slices+=("build/ImageShrink-${arch}")
+done
+cp "build/const-${ARCHS%% *}.swiftconstvalues" build/const.swiftconstvalues
+lipo -create "${slices[@]}" -output "$APP/Contents/MacOS/ImageShrink"
 
 echo "› Shortcuts action"
 PROCESSOR="$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain/usr/bin/appintentsmetadataprocessor"
-if [ -x "$PROCESSOR" ]; then
-    ls Sources/ImageShrink/*.swift > build/sources.txt
-    echo "build/const.swiftconstvalues" > build/constvals.txt
+export_metadata() {
     "$PROCESSOR" \
         --output "$APP/Contents/Resources" \
         --toolchain-dir "$(xcode-select -p)/Toolchains/XcodeDefault.xctoolchain" \
@@ -32,10 +38,24 @@ if [ -x "$PROCESSOR" ]; then
         --xcode-version "$(xcodebuild -version | tail -1 | awk '{print $3}')" \
         --platform-family macOS \
         --deployment-target "$DEPLOYMENT_TARGET" \
-        --target-triple "${ARCH}-apple-macos${DEPLOYMENT_TARGET}" \
+        --target-triple "${ARCHS%% *}-apple-macos${DEPLOYMENT_TARGET}" \
         --source-file-list build/sources.txt \
         --swift-const-vals-list build/constvals.txt \
-        --quiet-warnings --force >/dev/null
+        --quiet-warnings --force "$@" >/dev/null 2>&1
+}
+if [ -x "$PROCESSOR" ]; then
+    ls Sources/ImageShrink/*.swift > build/sources.txt
+    echo "build/const.swiftconstvalues" > build/constvals.txt
+    # The processor rejects the parameter summary on some toolchain states — the same sources
+    # exported cleanly earlier the same day. Shipping the action without its sentence beats
+    # shipping no action, so a refusal falls back instead of failing the build.
+    if ! export_metadata; then
+        if export_metadata --force-metadata-output; then
+            echo "  note: the summary sentence was rejected, the action ships without it"
+        else
+            echo "  skipped: the export failed, there will be no Shortcuts action"
+        fi
+    fi
 else
     echo "  skipped: no appintentsmetadataprocessor, the Shortcuts action will not appear"
 fi
@@ -47,6 +67,13 @@ iconutil -c icns build/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 cp Resources/Info.plist "$APP/Contents/Info.plist"
 cp README.md "$APP/Contents/Resources/README.md"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
+
+# The Quick Actions travel inside the bundle, with a placeholder where the executable path
+# goes — the app writes its own path in when it installs them. They must be in place before
+# signing, or they are not covered by the signature.
+echo "› Finder actions"
+IMAGESHRINK_BIN='"@IMAGESHRINK_BINARY@"' \
+    ./scripts/make-quick-action.sh "$APP/Contents/Resources/Services" >/dev/null
 
 # A personal Developer ID if there is one, ad-hoc otherwise. The work identity is never
 # picked: the match is on "Developer ID Application", and IMAGESHRINK_SIGN_IDENTITY wins.
