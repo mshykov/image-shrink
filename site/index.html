@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Image Shrink — a JPEG under your size limit, from Finder</title>
-<meta name="description" content="Right-click a photo in Finder on your Mac and get a JPEG under the size limit you pick — 500 KB, 1 MB, 2 MB or your own. HEIC, PNG, JPEG, TIFF and raw. Free, open source, and nothing leaves your Mac.">
+<title>Image Shrink — a hot key away from a JPEG under your size limit</title>
+<meta name="description" content="Press a hot key, or right-click in Finder, and get a JPEG under the size limit you pick — 500 KB, 1 MB, 2 MB or your own. HEIC, PNG, JPEG, TIFF and raw, converted on your Mac. Free, open source, nothing uploaded.">
 <link rel="canonical" href="https://mshykov.github.io/image-shrink/">
 
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
@@ -15,8 +15,8 @@
 <link rel="manifest" href="manifest.json">
 
 <meta property="og:type" content="website">
-<meta property="og:title" content="Image Shrink — a JPEG under your size limit, from Finder">
-<meta property="og:description" content="Right-click a photo in Finder, pick a limit, get a JPEG that fits. Nothing leaves your Mac.">
+<meta property="og:title" content="Image Shrink — a hot key away from a JPEG under your size limit">
+<meta property="og:description" content="Press ⌃⌘J on a Finder selection, or right-click and pick a limit. Nothing leaves your Mac.">
 <meta property="og:url" content="https://mshykov.github.io/image-shrink/">
 <meta property="og:image" content="https://mshykov.github.io/image-shrink/og.png">
 <meta name="twitter:card" content="summary_large_image">
@@ -29,7 +29,7 @@
   "applicationCategory": "MultimediaApplication",
   "operatingSystem": "macOS 13 or newer",
   "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
-  "description": "Converts HEIC, PNG, JPEG and other images to a JPEG under a size limit you pick, from Finder's right-click menu."
+  "description": "Converts HEIC, PNG, JPEG and other images to a JPEG under a size limit you pick — from a keyboard shortcut on a Finder selection, or from Finder's right-click menu."
 }
 </script>
 
@@ -102,6 +102,11 @@ code.brew {
   font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .requirements { color: var(--faint); font-size: 14px; margin-top: 16px; }
+kbd {
+  font: inherit; font-weight: 600; background: var(--panel); border: 1px solid var(--line);
+  border-bottom-width: 2px; border-radius: 6px; padding: 1px 7px; white-space: nowrap;
+}
+.step span.keys { width: auto; padding: 0 8px; font-size: 13px; letter-spacing: 0.02em; }
 
 section { padding: 44px 0; }
 h2 { font-size: 24px; letter-spacing: -0.01em; margin: 0 0 20px; }
@@ -152,8 +157,10 @@ footer a { color: var(--dim); }
   <div class="wrap hero">
     <h1>Your photo is 8&nbsp;MB. The upload takes 2.</h1>
     <p class="lead">
-      Right-click any image in Finder, pick a size limit, and get a JPEG that fits — named for the
-      size it actually came out at. HEIC, PNG, JPEG, TIFF, WebP and camera raw all go in.
+      Select photos in Finder and press <kbd>⌃⌘J</kbd> — they are converted where they sit, with no
+      window and no waiting. Or right-click and pick the limit yourself. HEIC, PNG, JPEG, TIFF,
+      WebP and camera raw all go in; a JPEG under your limit comes out, named for the size it
+      actually reached.
     </p>
     <div class="actions">
       <a class="button" href="https://github.com/mshykov/image-shrink/releases/latest">Download for macOS</a>
@@ -164,12 +171,18 @@ footer a { color: var(--dim); }
 
   <div class="wrap">
     <section>
-      <h2>Three steps, no window if you don't want one</h2>
+      <h2>The fast way, and the careful way</h2>
       <div class="steps">
+        <div class="step">
+          <span class="keys">⌃⌘J</span>
+          <h3>The hot key</h3>
+          <p>Select images in Finder, press it, done — your last settings, no window, no app to
+          open. Record any combination you like inside the app.</p>
+        </div>
         <div class="step">
           <span>1</span>
           <h3>Right-click in Finder</h3>
-          <p>Select any number of images, then Quick Actions → Convert to JPEG.</p>
+          <p>Or take the slow road: Quick Actions → Convert to JPEG.</p>
         </div>
         <div class="step">
           <span>2</span>
@@ -198,12 +211,13 @@ footer a { color: var(--dim); }
       <h2>What it does that a web converter cannot</h2>
       <div class="features">
         <div>
-          <h3>Never bigger than the original</h3>
-          <p>A 1.2 MB HEIC does not come out as a 2 MB JPEG just because the limit allows it.</p>
+          <h3>A hot key, not a workflow</h3>
+          <p>Select files anywhere in Finder, press your combination, and they are converted in
+          place with your last settings. Nothing opens, nothing to click.</p>
         </div>
         <div>
-          <h3>A shortcut with no window</h3>
-          <p>Select files, press the key you chose, and they are converted with your last settings. No app to open.</p>
+          <h3>Never bigger than the original</h3>
+          <p>A 1.2 MB HEIC does not come out as a 2 MB JPEG just because the limit allows it.</p>
         </div>
         <div>
           <h3>Presets in the same menu</h3>
@@ -237,6 +251,12 @@ footer a { color: var(--dim); }
 
     <section>
       <h2>Questions</h2>
+      <details>
+        <summary>Can I change the hot key?</summary>
+        <p>Yes — click the keys in the window's banner, or Settings → Finder shortcut, and press
+        the combination you want. ⌃⌘J is only the default. It works on a Finder selection without
+        opening anything.</p>
+      </details>
       <details>
         <summary>Does it touch my originals?</summary>
         <p>No. The converted copy is written next to the original, and the original is left alone

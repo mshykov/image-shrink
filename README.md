@@ -4,7 +4,7 @@
 
 # Image Shrink
 
-**Right-click a photo in Finder and get a JPEG under the size limit you pick.**
+**Press ⌃⌘J on a Finder selection — or right-click — and get a JPEG under the size limit you pick.**
 
 [![Download](https://img.shields.io/github/v/release/mshykov/image-shrink?display_name=tag&label=download&color=0a6fe8&style=flat-square)](https://github.com/mshykov/image-shrink/releases/latest)
 [![Downloads](https://img.shields.io/github/downloads/mshykov/image-shrink/total?label=downloads&color=8a8a8e&style=flat-square)](https://github.com/mshykov/image-shrink/releases)
@@ -21,13 +21,18 @@
 
 </div>
 
-Your phone shoots 8 MB photos; the form you are uploading to takes 2. Image Shrink converts
-HEIC, JPEG, PNG and anything else macOS can read (TIFF, GIF, WebP, camera raw) to JPEG **under a
-size limit you pick at conversion time** — and never hands you a file bigger than the one you
-gave it.
+Your phone shoots 8 MB photos; the form you are uploading to takes 2.
 
-Right-click images in Finder → **Quick Actions → Convert to JPEG** → set the limit → convert.
-Or press ⌃⌘J and skip the window entirely.
+**The fast way:** select images anywhere in Finder and press the hot key — ⌃⌘J by default, any
+combination you record in the app. They are converted where they sit, with your last settings,
+without a window opening. That is the whole interaction.
+
+**The careful way:** right-click → **Quick Actions → Convert to JPEG** → pick the limit and see
+what every file will weigh before anything is written.
+
+Either way it converts HEIC, JPEG, PNG and anything else macOS can read (TIFF, GIF, WebP, camera
+raw) to a JPEG **under a size limit you pick at conversion time** — and never hands you a file
+bigger than the one you gave it.
 
 ## Install
 

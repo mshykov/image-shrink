@@ -40,7 +40,7 @@ func write(_ text: String, x: CGFloat, y: CGFloat, size fontSize: CGFloat,
 }
 
 write("Image Shrink", x: 96, y: 236, size: 76, weight: .semibold, alpha: 1)
-write("Right-click a photo in Finder — get a JPEG under the size", x: 96, y: 170,
+write("Press \u{2303}\u{2318}J on a Finder selection — a JPEG under the size", x: 96, y: 170,
       size: 36, weight: .regular, alpha: 0.78)
 write("limit you pick. Nothing leaves your Mac.", x: 96, y: 120, size: 36, weight: .regular, alpha: 0.78)
 write("macOS 13+  ·  Apple silicon and Intel  ·  free and open source", x: 96, y: 56,
