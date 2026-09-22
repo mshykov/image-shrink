@@ -12,9 +12,12 @@ on:
 permissions:
   contents: read
 
+# A pull request's older run is worth cancelling; a run on main is the record of that commit,
+# and cancelling it leaves the branch looking broken. Keeping the event in the group also stops
+# a manual dispatch from killing the push run for the same commit.
 concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+  group: ci-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
   build:
