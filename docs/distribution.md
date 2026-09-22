@@ -11,13 +11,14 @@ Written 2026-09-22; the state section below is measured, not assumed.
 | Certificate | valid to 1 Feb 2027, so the Developer Program membership is active (notarisation needs it) |
 | Architecture | universal — `lipo -archs` → `x86_64 arm64`, and the Intel slice was run under Rosetta |
 | Finder actions | installed by the app itself on first launch, verified from a clean state |
-| DMG | `scripts/release.sh` builds, signs and wraps it; 3.3 MB |
-| Notarised | **not yet** — needs credentials only you can enter, and `spctl` still says `Unnotarized Developer ID` |
+| DMG | `scripts/release.sh` builds, signs, notarises and staples it; 2.3 MB |
+| Notarised | **yes** — app and disk image both Accepted, both stapled; mounted the DMG and checked the app inside: universal, signature valid, ticket present, `spctl` says `accepted, source=Notarized Developer ID` |
 | Version | `1.0.0` (build `1`), minimum macOS 13.0 |
 | Updates | "Check for Updates" opens the releases page; no appcast yet |
 | Repo | local only, no remote — the site and the download links assume `github.com/mshykov/image-shrink` |
 
-What is left is section 1.3 (notarise), publishing the repo, and turning the Pages site on.
+What is left is outside the build: publishing the repo, turning the Pages site on, and the
+recording. The DMG on disk is ready to hand to a stranger.
 
 ## 1. Make the build shippable
 
@@ -48,7 +49,7 @@ before signing; `release.sh` passes it and refuses to continue if the result is 
 The const-values file for the Shortcuts metadata comes from the first architecture — one
 copy describes them all. The Intel slice was checked by running it under Rosetta.
 
-### 1.3 Notarise and staple
+### 1.3 Notarise and staple — done, in `release.sh`
 
 Gatekeeper on another Mac checks for a notarisation ticket, not just a signature. One-time
 credential setup — run this yourself, it asks for an app-specific password created at
@@ -70,6 +71,11 @@ spctl -a -vvv -t exec "build/Image Shrink.app"   # must say: accepted, source=No
 If it is rejected, `xcrun notarytool log <submission-id> --keychain-profile image-shrink` says
 why. The usual causes are a missing hardened runtime (we have it) and a missing secure
 timestamp (we have that too).
+
+`store-credentials` returning 401 is about the password, not the setup: Apple shows an
+app-specific password once, at creation, and the list afterwards only shows its label. Having
+several of them is fine — they do not conflict. An App Store Connect API key (`--key`,
+`--key-id`, `--issuer`) avoids the whole problem and does not expire with the account password.
 
 ### 1.4 Ship a DMG — done, `scripts/release.sh`
 
