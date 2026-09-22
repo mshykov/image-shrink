@@ -24,8 +24,23 @@ except ImportError:
 if len(sys.argv) != 4:
     sys.exit("usage: verify-appcast-signature.py <appcast.xml> <update.dmg> <public-key>")
 
-appcast = pathlib.Path(sys.argv[1]).read_text()
-update = pathlib.Path(sys.argv[2])
+
+def artifact(argument: str, suffix: str) -> pathlib.Path:
+    """A path this tool will read: a real file, of the expected kind, inside this directory.
+
+    It verifies build output, so there is no reason to read anything elsewhere on the disk, and
+    saying so turns a path from the command line into a checked one.
+    """
+    path = pathlib.Path(argument).resolve()
+    if not path.is_relative_to(pathlib.Path.cwd()):
+        sys.exit(f"{argument} is outside {pathlib.Path.cwd()}")
+    if path.suffix != suffix or not path.is_file():
+        sys.exit(f"{argument} is not an existing {suffix} file")
+    return path
+
+
+appcast = artifact(sys.argv[1], ".xml").read_text()
+update = artifact(sys.argv[2], ".dmg")
 public_key_base64 = sys.argv[3].strip()
 
 found = re.search(r'sparkle:edSignature="([^"]+)"', appcast)
