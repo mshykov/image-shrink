@@ -11,6 +11,14 @@ import Sparkle
 /// menu item opens the releases page, which is what every build did before.
 @MainActor
 enum Updater {
+    /// Set by `IMAGESHRINK_FLAVOR=setapp ./scripts/build.sh`. Setapp installs and updates the
+    /// apps it distributes, and its requirements are explicit that a vendor's own update
+    /// framework has to be switched off — two things replacing one bundle is how a copy ends
+    /// up half-updated.
+    static var isManagedExternally: Bool {
+        (Bundle.main.object(forInfoDictionaryKey: "ISDistributionChannel") as? String) == "setapp"
+    }
+
     #if canImport(Sparkle)
     /// Built once, at launch, so the scheduled check runs. A CLI invocation never touches this.
     private static var controller: SPUStandardUpdaterController?
@@ -18,6 +26,7 @@ enum Updater {
     static var isBuiltIn: Bool { true }
 
     static func start() {
+        guard !isManagedExternally else { return }
         guard controller == nil else { return }
         controller = SPUStandardUpdaterController(startingUpdater: true,
                                                   updaterDelegate: nil,

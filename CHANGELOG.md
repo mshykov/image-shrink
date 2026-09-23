@@ -2,6 +2,9 @@
 
 ## 1.2.0 — unreleased
 
+- A build flavour for Setapp: `IMAGESHRINK_FLAVOR=setapp` leaves Sparkle out, drops the feed
+  keys from the bundle and hides the update menu item, because that channel installs and
+  updates its own apps. Nothing changes for the direct download or Homebrew.
 - **A folder works wherever a file does.** Drop one on the window or the menu bar icon, pick it
   in Add Files, or pass it on the command line: every image inside is taken, subfolders
   included. Hidden files and the insides of packages — a `.photoslibrary`, an `.app` — are left

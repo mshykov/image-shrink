@@ -20,6 +20,7 @@ enum CLI {
       --no-skip          re-encode even if the file is already under the limit
       --preset <id>      use a named preset (see --list-presets)
       --list-presets     print the presets, tab separated, for the installer
+      --distribution     print the channel this build was made for, and how it updates
       --install-services   install the Finder Quick Actions and exit
       --uninstall-services remove them and exit
       --saved            start from the settings the app window last used
@@ -113,6 +114,16 @@ enum CLI {
                 Services.uninstall()
                 Services.restartFinder()
                 print("removed the Quick Actions")
+                return 0
+            case "--distribution":
+                let channel = Bundle.main
+                    .object(forInfoDictionaryKey: "ISDistributionChannel") as? String ?? "direct"
+                let managed = MainActor.assumeIsolated { Updater.isManagedExternally }
+                let builtIn = MainActor.assumeIsolated { Updater.isBuiltIn }
+                print("channel: \(channel)")
+                print("updates: \(managed ? "handled by the channel" : (builtIn ? "Sparkle" : "manual"))")
+                let feed = Bundle.main.object(forInfoDictionaryKey: "SUFeedURL") as? String
+                print("feed: \(feed ?? "none")")
                 return 0
             case "--list-presets":
                 for preset in Preset.all {

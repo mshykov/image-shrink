@@ -18,8 +18,16 @@ echo "› compiling ($ARCHS)"
 # Sparkle is optional: ./scripts/fetch-sparkle.sh puts it in vendor/, and the source compiles
 # either way behind canImport. Without it the app opens the releases page instead of updating
 # itself — which is what a fresh checkout does until someone runs the fetch script.
+#
+# A Setapp build never has it: Setapp installs and updates the apps it distributes, and its
+# requirements say a vendor's own update framework must be off — two things replacing one
+# bundle is how a copy ends up half-updated. IMAGESHRINK_FLAVOR=setapp also rewrites the
+# bundle's Info.plist further down.
+FLAVOR="${IMAGESHRINK_FLAVOR:-direct}"
 SPARKLE=""
-if [[ -d vendor/sparkle/Sparkle.framework ]]; then
+if [[ "$FLAVOR" == "setapp" ]]; then
+    echo "  flavour: setapp — no Sparkle, no update menu item"
+elif [[ -d vendor/sparkle/Sparkle.framework ]]; then
     SPARKLE="vendor/sparkle"
     echo "  with Sparkle $(cat vendor/sparkle/.version)"
 fi
@@ -80,6 +88,14 @@ xcrun swift tools/make-icon.swift build/AppIcon.iconset >/dev/null
 iconutil -c icns build/AppIcon.iconset -o "$APP/Contents/Resources/AppIcon.icns"
 
 cp Resources/Info.plist "$APP/Contents/Info.plist"
+if [[ "$FLAVOR" == "setapp" ]]; then
+    # A feed URL and a public key in a build that cannot update itself are dead weight, and
+    # exactly the thing a reviewer would ask about.
+    /usr/libexec/PlistBuddy -c "Delete :SUFeedURL" -c "Delete :SUPublicEDKey" \
+        "$APP/Contents/Info.plist" >/dev/null 2>&1 || true
+    /usr/libexec/PlistBuddy -c "Add :ISDistributionChannel string setapp" \
+        "$APP/Contents/Info.plist" >/dev/null
+fi
 cp README.md "$APP/Contents/Resources/README.md"
 printf 'APPL????' > "$APP/Contents/PkgInfo"
 
