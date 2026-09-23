@@ -150,6 +150,9 @@ live at `https://mshykov.github.io/image-shrink/`. What it has, and what still n
 - the sentence the app exists for, the three steps, the feature grid, the privacy block and a
   short FAQ; the full icon set is in place — SVG icon, `.ico` fallback, `apple-touch-icon`,
   `apple-mobile-web-app-title`, `theme-color` and a manifest — plus the OG card and JSON-LD;
+- a privacy page at `/privacy.html`, which is both the honest thing and a hard requirement
+  for Setapp and the App Store. It names the update check, what stays on the Mac, and the
+  metadata behaviour — a converted photo keeps the original's GPS unless you strip it.
 - **you need to add**: a support email in the footer — an issue tracker alone puts off
   non-developers — and a 15–20 second screen recording of the right-click → limit → done flow.
   The screenshots on the page are offscreen renders of the real window; a recording of it in
