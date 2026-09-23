@@ -81,9 +81,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         arrowKeys = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
             guard let self, let window = self.window, event.window === window else { return event }
             guard !(window.firstResponder is NSTextView) else { return event }
-            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty else {
-                return event
-            }
+            // Changing the limit mid-run would leave the window showing one number while the
+            // conversion uses the one it captured when it started.
+            guard !self.model.isRunning else { return event }
+            // Only the modifiers a person presses on purpose disqualify the key. Arrow events
+            // carry .numericPad and .function of their own, so asking for no flags at all
+            // rejects every arrow before it reaches the switch.
+            let deliberate: NSEvent.ModifierFlags = [.command, .control, .option, .shift]
+            guard event.modifierFlags.intersection(deliberate).isEmpty else { return event }
             switch event.keyCode {
             case 123: self.model.stepLimit(-1); return nil
             case 124: self.model.stepLimit(1); return nil
