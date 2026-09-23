@@ -32,6 +32,7 @@ enum CLI {
       --snapshot-settings  render the Settings window instead
       --snapshot-popover   render the settings popover instead
       --snapshot-menubar   render the menu bar panel instead
+      --snapshot-hud       render the panel a windowless run ends with
       --snapshot-motion <dir>  capture frames while the limit changes
       --snapshot-light     render in the light appearance
     """
@@ -54,6 +55,7 @@ enum CLI {
         var snapshotSettings = false
         var snapshotPopover = false
         var snapshotMenuBar = false
+        var snapshotHUD = false
         var motionDirectory: String?
         var lightAppearance = false
         var index = 0
@@ -144,6 +146,8 @@ enum CLI {
                 snapshotPopover = true
             case "--snapshot-menubar":
                 snapshotMenuBar = true
+            case "--snapshot-hud":
+                snapshotHUD = true
             case "--snapshot-light":
                 lightAppearance = true
             case "--snapshot-motion":
@@ -168,7 +172,7 @@ enum CLI {
                 render(to: snapshot, files: files, settings: settings,
                        convert: snapshotRun, settingsScreen: snapshotSettings,
                        popover: snapshotPopover, menuBar: snapshotMenuBar,
-                       light: lightAppearance)
+                       hud: snapshotHUD, light: lightAppearance)
             }
         }
 
@@ -285,6 +289,12 @@ enum CLI {
 
         let cancellation = Cancellation()
         let hud = ConversionHUD(total: files.count, onStop: { cancellation.cancel() })
+        hud.onFix { urls in
+            let configuration = NSWorkspace.OpenConfiguration()
+            configuration.activates = true
+            NSWorkspace.shared.open(urls, withApplicationAt: Bundle.main.bundleURL,
+                                    configuration: configuration)
+        }
         hud.show()
 
         let box = RunTotals()
@@ -310,7 +320,8 @@ enum CLI {
         Feedback.play(success: totals.failures == 0)
         if totals.failures > 0 {
             hud.incomplete(converted: totals.converted,
-                           message: totals.firstFailure ?? "Some files could not be converted")
+                           message: totals.firstFailure ?? "Some files could not be converted",
+                           failed: box.failedSources)
         } else {
             hud.finish(before: totals.before, after: totals.after)
         }
@@ -333,7 +344,7 @@ enum CLI {
     private static func render(to path: String, files: [URL], settings: ConversionSettings,
                                convert: Bool, settingsScreen: Bool = false,
                                popover: Bool = false, menuBar: Bool = false,
-                               light: Bool = false) -> Int32 {
+                               hud: Bool = false, light: Bool = false) -> Int32 {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.accessory)
         NSApp.appearance = NSAppearance(named: light ? .aqua : .darkAqua)
@@ -349,14 +360,25 @@ enum CLI {
             hosting = NSHostingView(rootView: SettingsView())
         } else if popover {
             hosting = NSHostingView(rootView: SettingsPopover().environmentObject(model))
+        } else if hud {
+            // The state a Finder run ends in when something did not convert, which is the only
+            // place the Fix button appears.
+            let state = ConversionHUD.State(total: 5)
+            state.done = 3
+            state.failed = files.isEmpty ? [URL(fileURLWithPath: "/tmp/IMG_7301.HEIC")] : files
+            state.onFix = { _ in }
+            state.phase = .incomplete(converted: 3,
+                                      message: "IMG_7301.HEIC: could not read image")
+            hosting = NSHostingView(rootView: HUDView(state: state))
         } else if menuBar {
             hosting = NSHostingView(rootView: MenuBarPanel(model: model, openWindow: {},
                                                            dropped: { _ in }))
         } else {
             hosting = NSHostingView(rootView: ContentView().environmentObject(model))
         }
-        hosting.frame = NSRect(x: 0, y: 0, width: settingsScreen ? 460 : 560, height: 680)
-        if settingsScreen || popover || menuBar {
+        hosting.frame = NSRect(x: 0, y: 0, width: hud ? 440 : (settingsScreen ? 460 : 560),
+                               height: hud ? 78 : 680)
+        if settingsScreen || popover || menuBar || hud {
             hosting.layoutSubtreeIfNeeded()
             hosting.frame = NSRect(origin: .zero, size: hosting.fittingSize)
         }

@@ -58,31 +58,39 @@ final class MenuBarController: NSObject {
         guard !images.isEmpty else { return }
         let settings = model.settings()
         let hud = ConversionHUD(total: images.count)
+        hud.onFix { [weak self] urls in
+            guard let self else { return }
+            self.model.add(urls: urls)
+            self.onOpenWindow()
+        }
         hud.show()
 
         Task.detached(priority: .userInitiated) {
             let reserver = NameReserver(sources: images)
             let counter = Counter()
-            var before = 0, after = 0
-            let lock = NSLock()
+            let box = RunTotals()
 
             DispatchQueue.concurrentPerform(iterations: images.count) { index in
                 let result = Converter.convert(url: images[index], settings: settings,
                                                reserver: reserver)
                 let done = counter.increment()
-                lock.lock()
-                before += result.originalBytes
-                after += result.newBytes ?? result.originalBytes
-                let outputs = result.output
-                lock.unlock()
-                Task { @MainActor in hud.advance(done: done, latest: outputs) }
+                box.add(result)
+                let output = result.output
+                Task { @MainActor in hud.advance(done: done, latest: output) }
             }
 
-            let totals = (before, after)
+            let totals = box.snapshot()
+            let failed = box.failedSources
             await MainActor.run {
-                History.add(count: images.count, before: totals.0, after: totals.1)
-                hud.finish(before: totals.0, after: totals.1)
-                Feedback.play(success: true)
+                History.add(count: totals.converted, before: totals.before, after: totals.after)
+                if totals.failures > 0 {
+                    hud.incomplete(converted: totals.converted,
+                                   message: totals.firstFailure ?? "Some files could not be converted",
+                                   failed: failed)
+                } else {
+                    hud.finish(before: totals.before, after: totals.after)
+                }
+                Feedback.play(success: totals.failures == 0)
             }
         }
     }

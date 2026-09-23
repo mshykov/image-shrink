@@ -119,6 +119,7 @@ final class RunTotals: @unchecked Sendable {
     private var converted = 0
     private var failures = 0
     private var firstFailure: String?
+    private var failed: [URL] = []
     private var finished = false
 
     var isComplete: Bool {
@@ -134,6 +135,7 @@ final class RunTotals: @unchecked Sendable {
         after += result.newBytes ?? result.originalBytes
         if case .failed(let reason) = result.status {
             failures += 1
+            failed.append(result.source)
             if firstFailure == nil {
                 firstFailure = "\(result.source.lastPathComponent): \(reason)"
             }
@@ -146,6 +148,13 @@ final class RunTotals: @unchecked Sendable {
         lock.lock()
         finished = true
         lock.unlock()
+    }
+
+    /// The sources that did not convert, so the HUD's Fix button has something to hand over.
+    var failedSources: [URL] {
+        lock.lock()
+        defer { lock.unlock() }
+        return failed
     }
 
     func snapshot() -> (before: Int, after: Int, converted: Int, failures: Int, firstFailure: String?) {

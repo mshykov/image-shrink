@@ -2,6 +2,11 @@
 
 ## 1.2.0 — unreleased
 
+- **A failed conversion now offers a way out.** The panel that reports a windowless run has a
+  **Fix** button: it opens the window with the files that did not convert, where each row says
+  why and the limit and destination are right there.
+- Images dropped on the menu bar icon report failures instead of claiming success. Every result
+  counted as converted, and the finish sound agreed with it, even when nothing was written.
 - **A CMYK original now comes out as sRGB.** A CMYK JPEG is what a print workflow hands back,
   and it is valid — but it displays inverted or washed out in much of what people upload to,
   when it is accepted at all. Anything that is not RGB or grayscale is redrawn in sRGB before
