@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.3.0 — unreleased
+## 1.3.0 — 2026-09-23
 
 - **Hover says a control is a control.** With the press dimming gone, a button in the settings
   popover looked like a label — nothing happened under the pointer either. Capsule buttons and
