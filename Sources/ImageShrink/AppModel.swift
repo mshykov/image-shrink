@@ -111,8 +111,8 @@ final class AppModel: ObservableObject {
     // MARK: - Queue
 
     func add(urls: [URL]) {
-        let images = urls.filter(Self.isImage)
-        Log.write("queued \(images.count) of \(urls.count) file(s): "
+        let images = Self.images(in: urls)
+        Log.write("queued \(images.count) image(s) from \(urls.count) item(s): "
                   + images.map(\.lastPathComponent).joined(separator: ", "))
         guard !images.isEmpty else { return }
         let known = Set(items.map(\.url.standardizedFileURL))
@@ -320,9 +320,50 @@ final class AppModel: ObservableObject {
         defaults.set(skipSmallEnough, forKey: "skipSmallEnough")
     }
 
-    static func isImage(_ url: URL) -> Bool {
+    nonisolated static func isImage(_ url: URL) -> Bool {
         guard let type = UTType(filenameExtension: url.pathExtension.lowercased()) else { return false }
         return type.conforms(to: .image)
+    }
+
+    /// Known to be something other than an image. An unknown or missing extension is not:
+    /// that is the extensionless JPEG case, and the converter reports it if the bytes disagree.
+    nonisolated static func isPlausibleImage(_ url: URL) -> Bool {
+        guard let type = UTType(filenameExtension: url.pathExtension.lowercased()) else { return true }
+        return type.conforms(to: .image)
+    }
+
+    /// Every image in what was handed over: files as themselves, folders opened up.
+    ///
+    /// Dropping a folder of photos is the obvious gesture and it used to do nothing at all.
+    /// Subfolders are followed, because a photo library is nested by month more often than not;
+    /// hidden files and package contents are not, because nobody means the JPEGs inside a
+    /// .photoslibrary or an .app. Sorted, so a batch names its outputs the same way twice —
+    /// `NameReserver` resolves clashing base names from the order it is given.
+    nonisolated static func images(in urls: [URL]) -> [URL] {
+        var found: [URL] = []
+        for url in urls {
+            var isDirectory: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory)
+            guard exists else { continue }
+            guard isDirectory.boolValue else {
+                // A file someone named is taken unless its type says it is positively not an
+                // image: a dropped PDF was a slip, but a JPEG with no extension at all is a
+                // real thing — ImageIO reads the bytes, and the CLI has always accepted one.
+                if isPlausibleImage(url) { found.append(url) }
+                continue
+            }
+            let enumerator = FileManager.default.enumerator(
+                at: url,
+                includingPropertiesForKeys: [.isRegularFileKey],
+                options: [.skipsHiddenFiles, .skipsPackageDescendants])
+            while let entry = enumerator?.nextObject() as? URL {
+                if isImage(entry),
+                   (try? entry.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true {
+                    found.append(entry)
+                }
+            }
+        }
+        return found.sorted { $0.path < $1.path }
     }
 }
 

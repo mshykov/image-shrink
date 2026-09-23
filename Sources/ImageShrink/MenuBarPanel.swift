@@ -55,7 +55,7 @@ struct MenuBarPanel: View {
             .overlay {
                 VStack(spacing: Theme.tight) {
                     Image(systemName: "photo").foregroundStyle(.secondary)
-                    Text("Drop images on the menu bar icon")
+                    Text("Drop images or a folder on the menu bar icon")
                         .font(Theme.meta)
                         .foregroundStyle(.secondary)
                 }

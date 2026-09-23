@@ -80,8 +80,9 @@ shortcut, and press the combination you want. Esc keeps the current one, Delete 
 The shortcut works on a Finder selection without opening any menu, and it survives a
 reinstall. System Settings → Keyboard → Keyboard Shortcuts → Services shows the same entry.
 
-**By hand** — open the app from `~/Applications` and drag files onto the window, or use
-Add Files.
+**By hand** — open the app and drag files **or a whole folder** onto the window, or use
+Add Files. A folder is opened up for you: every image inside it, subfolders included, hidden
+files and package contents left alone.
 
 **From Shortcuts** — the app publishes a **Convert Images to JPEG** action, with the images,
 the megabyte limit and an optional longest side as parameters. It returns the converted files,

@@ -135,7 +135,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     @objc func openFiles(_ sender: Any?) {
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = false
+        panel.canChooseDirectories = true
         panel.allowedContentTypes = [.image]
         guard panel.runModal() == .OK else { return }
         model.add(urls: panel.urls)
