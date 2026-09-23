@@ -151,7 +151,29 @@ struct LimitPicker: View {
     }
 
     private func button(_ label: String, value: Double, selected: Bool) -> some View {
-        Button { if !selected { apply(value) } } label: {
+        Pill(label: label, value: value, selected: selected, space: Self.space) {
+            if !selected { apply(value) }
+        }
+    }
+}
+
+/// One segment of the limit picker.
+///
+/// Its own view rather than a method, because each one needs its own hover state — an
+/// unselected pill lights up faintly under the pointer, which is what tells someone the strip
+/// is a control at all. The selected one already says so.
+private struct Pill: View {
+    let label: String
+    let value: Double
+    let selected: Bool
+    let space: String
+    let action: () -> Void
+
+    @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+
+    var body: some View {
+        Button(action: action) {
             Text(label)
                 .font(Theme.control)
                 .tabularNumbers()
@@ -168,13 +190,20 @@ struct LimitPicker: View {
                 .contentShape(Rectangle())
                 .capsuleFocusRing()
                 .background {
+                    if hovering && !selected {
+                        Capsule().fill(Color.primary.opacity(0.10))
+                    }
+                }
+                .background {
                     GeometryReader { proxy in
                         Color.clear.preference(key: PillFrames.self,
-                                               value: [value: proxy.frame(in: .named(Self.space))])
+                                               value: [value: proxy.frame(in: .named(space))])
                     }
                 }
         }
         .buttonStyle(FlatButton())
+        .onHover { hovering = $0 }
+        .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovering)
         .accessibilityLabel("Limit \(label)")
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
@@ -702,23 +731,44 @@ struct ProgressBadge: View {
 /// SwiftUI's plain style dims a label on press, and our own styles used to fade the capsule.
 /// On controls this small a click is over before the eye resolves it, so the feedback reads as
 /// a flicker rather than as an answer — the App Store's own controls do not do it either. What
-/// confirms a click here is the result: the capsule slides, the numbers change.
+/// confirms a click is the result: the capsule slides, the numbers change.
+///
+/// Hover is the opposite case. It lasts as long as the pointer does, so it reads as "this is a
+/// control" rather than as a blink, and without it a button in a popover looks like a label.
 struct FlatButton: ButtonStyle {
+    /// Icon buttons and the pills carry their own hover treatment; this one only stops the
+    /// press dimming.
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
     }
 }
 
+/// The hover fade every capsule button shares: slow enough to read as deliberate.
+private struct Hoverable<Content: View>: View {
+    @State private var hovering = false
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    let content: (Bool) -> Content
+
+    var body: some View {
+        content(hovering)
+            .onHover { hovering = $0 }
+            .animation(reduceMotion ? nil : .easeOut(duration: 0.12), value: hovering)
+    }
+}
+
 struct PrimaryButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(Theme.action)
-            .lineLimit(1)
-            .fixedSize()
-            .foregroundStyle(.white)
-            .padding(.horizontal, Theme.wide)
-            .padding(.vertical, 7)
-            .background(Capsule().fill(Color.accentColor))
+        Hoverable { hovering in
+            configuration.label
+                .font(Theme.action)
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(.white)
+                .padding(.horizontal, Theme.wide)
+                .padding(.vertical, 7)
+                .background(Capsule().fill(Color.accentColor))
+                .brightness(hovering ? 0.06 : 0)
+        }
     }
 }
 
@@ -726,14 +776,16 @@ struct SecondaryButton: ButtonStyle {
     var compact = false
 
     func makeBody(configuration: Configuration) -> some View {
-        configuration.label
-            .font(compact ? Theme.meta : Theme.action)
-            .lineLimit(1)
-            .fixedSize()
-            .foregroundStyle(.primary)
-            .padding(.horizontal, compact ? Theme.snug : Theme.wide)
-            .padding(.vertical, compact ? 3 : 7)
-            .background(Capsule().fill(Color.primary.opacity(0.10)))
+        Hoverable { hovering in
+            configuration.label
+                .font(compact ? Theme.meta : Theme.action)
+                .lineLimit(1)
+                .fixedSize()
+                .foregroundStyle(.primary)
+                .padding(.horizontal, compact ? Theme.snug : Theme.wide)
+                .padding(.vertical, compact ? 3 : 7)
+                .background(Capsule().fill(Color.primary.opacity(hovering ? 0.18 : 0.10)))
+        }
     }
 }
 

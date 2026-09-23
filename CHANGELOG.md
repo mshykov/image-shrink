@@ -2,6 +2,13 @@
 
 ## 1.3.0 — unreleased
 
+- **Hover says a control is a control.** With the press dimming gone, a button in the settings
+  popover looked like a label — nothing happened under the pointer either. Capsule buttons and
+  the limit pills now lighten on hover, over 120 ms, which lasts as long as the pointer does and
+  so reads as an invitation rather than a blink.
+- **← and → walk the size limits again**, and this time without the picker holding focus: the
+  keys are read at the window, so nothing draws a ring. A focused text field keeps its own
+  arrows — editing beats navigating.
 - **Nothing dims while you click it.** Every control used to fade under the pointer — SwiftUI's
   plain style dims a label on press, and the capsule buttons faded to 70–80 %. A click is over
   before the eye resolves it, so on controls this small the feedback read as a flicker rather

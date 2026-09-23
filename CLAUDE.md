@@ -233,6 +233,17 @@ with the numbers doing the talking.
   the prototype's number) drives the capsule and the custom field's transition;
   `Theme.numbers` settles estimates, bars and totals, with `.numericTransition()` rolling
   the digits on macOS 14+. Every one of them is skipped under Reduce Motion.
+- **Hover yes, press no.** The two are not the same signal: hover lasts as long as the pointer
+  and tells someone a thing is a control; a press is over before the eye resolves it and reads
+  as a blink. Capsule buttons and the pills lighten on hover over 120 ms (skipped under Reduce
+  Motion); nothing changes on press. Removing the press dimming without adding hover is what
+  made the Reset button look like a label.
+- **Arrow keys are read at the window, not by a focused control.** `installArrowKeys` is a local
+  `NSEvent` monitor: ← and → call `AppModel.stepLimit`, and a first responder that is an
+  `NSTextView` keeps its own arrows. Doing this with `.focusable()` instead is what put a focus
+  ring on screen twice. The walk stops at both ends rather than wrapping, verified by compiling
+  the sources without `main.swift` against a throwaway main — which is the way to test model
+  logic here, since there is no test target.
 - **No control changes while it is pressed.** `FlatButton` is the style everything uses:
   `makeBody` returns the label untouched. SwiftUI's `.plain` dims on press and our capsules
   used to fade, and at the speed of a real click that reads as blinking — the App Store's
