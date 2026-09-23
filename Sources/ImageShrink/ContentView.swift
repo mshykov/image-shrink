@@ -184,6 +184,7 @@ struct LimitPicker: View {
                 // dead. The shape is the whole segment, corners included, so a click between
                 // two pills still lands on one of them.
                 .contentShape(Rectangle())
+                .capsuleFocusRing()
                 .background {
                     GeometryReader { proxy in
                         Color.clear.preference(key: PillFrames.self,
@@ -198,7 +199,19 @@ struct LimitPicker: View {
 }
 
 /// Where each pill sits, so one capsule can travel between them.
-private struct PillFrames: PreferenceKey {
+private extension View {
+    /// A focus ring that follows the pill rather than boxing it in. macOS 14 and later; below
+    /// that the system's rounded rectangle is what there is.
+    @ViewBuilder func capsuleFocusRing() -> some View {
+        if #available(macOS 14.0, *) {
+            contentShape(.focusEffect, Capsule())
+        } else {
+            self
+        }
+    }
+}
+
+struct PillFrames: PreferenceKey {
     static var defaultValue: [Double: CGRect] = [:]
     static func reduce(value: inout [Double: CGRect], nextValue: () -> [Double: CGRect]) {
         value.merge(nextValue()) { _, new in new }
