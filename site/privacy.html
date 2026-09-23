@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Image Shrink — privacy</title>
+<meta name="description" content="What Image Shrink does with your images and your data: nothing leaves your Mac except an update check you can decline. No accounts, no analytics, no telemetry.">
+<link rel="canonical" href="https://mshykov.github.io/image-shrink/privacy.html">
+
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="alternate icon" href="favicon.ico">
+<link rel="apple-touch-icon" href="logo.png">
+<meta name="apple-mobile-web-app-title" content="Image Shrink">
+<meta name="theme-color" content="#5A94FF">
+<link rel="manifest" href="manifest.json">
+
+<meta property="og:type" content="article">
+<meta property="og:title" content="Image Shrink — privacy">
+<meta property="og:description" content="No accounts, no analytics, no telemetry. Your images are converted on your Mac and sent nowhere.">
+<meta property="og:url" content="https://mshykov.github.io/image-shrink/privacy.html">
+<meta property="og:image" content="https://mshykov.github.io/image-shrink/og.png">
+<meta name="twitter:card" content="summary_large_image">
+
+<link rel="stylesheet" href="style.css">
+<style>
+  /* The column stays under the hero, not centred inside it: .wrap already centres, so a
+     narrower max-width here would push the text right of the heading above it. */
+  .prose h2 { margin-top: 36px; }
+  .prose p, .prose ul { max-width: 40em; }
+  .prose p, .prose li { color: var(--dim); }
+  .prose ul { padding-left: 20px; }
+  .prose li { margin-bottom: 8px; }
+  .updated { color: var(--faint); font-size: 14px; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap">
+    <a href="./" style="display: flex; align-items: center; gap: 12px; text-decoration: none; color: inherit;">
+      <img src="logo.png" alt="">
+      <strong>Image Shrink</strong>
+    </a>
+    <nav><a href="https://github.com/mshykov/image-shrink">GitHub</a></nav>
+  </div>
+</header>
+
+<main>
+  <div class="wrap hero">
+    <h1>Privacy</h1>
+    <p class="lead">
+      Image Shrink converts your photos on your Mac and sends nothing about them anywhere. This
+      page says exactly what that means, and names the one connection the app does make.
+    </p>
+    <p class="updated">Last updated 23 September 2026 · applies to version 1.1.0 and later</p>
+  </div>
+
+  <div class="wrap prose">
+    <section>
+      <h2>Your images</h2>
+      <p>
+        Every conversion happens locally, using the image encoder built into macOS. Your files
+        are read from where they are, written next to them (or to the folder you chose), and
+        that is the end of it. Nothing is uploaded, nothing is copied anywhere, and no part of
+        an image — not the picture, not its name, not its size — is transmitted off your Mac.
+      </p>
+      <p>
+        There is no account to create, nothing to sign in to, and no server belonging to this
+        app for anything to be sent to.
+      </p>
+    </section>
+
+    <section>
+      <h2>The one connection the app makes</h2>
+      <p>
+        The app can check whether a newer version exists. That check asks GitHub for a small
+        file listing the current release, and, if you accept an update, downloads it. It is the
+        only network request the app makes, and it has nothing to do with your images.
+      </p>
+      <ul>
+        <li>The app asks your permission on the second launch, and you can say no. You can
+          change that answer later in the dialog it shows.</li>
+        <li>No identifier, licence key, system profile or usage data is sent with the check.
+          Sparkle's optional system profiling is switched off.</li>
+        <li>GitHub, like any web server, records the request in its own logs — your IP address,
+          the time, and which file was asked for. That log belongs to GitHub and is covered by
+          <a href="https://docs.github.com/en/site-policy/privacy-policies/github-general-privacy-statement">their
+          privacy statement</a>. Nothing from it is sent on to anyone else.</li>
+        <li>Installed through Homebrew? Then updates come from <code>brew</code>, and the app's
+          own check is the same one described here.</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>What stays on your Mac</h2>
+      <ul>
+        <li><strong>Your settings</strong> — the size limit, the destination, the shortcut and
+          the rest, in the app's own preferences file.</li>
+        <li><strong>A short log</strong> at <code>~/Library/Logs/ImageShrink.log</code>,
+          containing file names and what happened to them. It exists because a Finder action
+          that silently does nothing is otherwise impossible to diagnose, and it is truncated
+          once it grows past a few hundred kilobytes.</li>
+        <li><strong>Recent batches</strong> — counts and sizes only, shown in the menu bar
+          panel.</li>
+      </ul>
+      <p>
+        All three are ordinary files in your home folder. Deleting the app's preferences, the
+        log, or running <code>./scripts/uninstall.sh</code> from the source removes them.
+      </p>
+    </section>
+
+    <section>
+      <h2>Metadata in your photos</h2>
+      <p>
+        This is the part worth reading twice. By default a converted photo keeps the metadata
+        the original carried — including the date, the camera, and <strong>the GPS coordinates
+        where it was taken</strong>. That is usually what you want when the file stays with you,
+        and rarely what you want when you are about to upload it somewhere.
+      </p>
+      <p>
+        Switching on <strong>Remove metadata</strong> in Settings drops EXIF and GPS from
+        everything the app writes. Orientation is kept regardless, because without it the
+        picture displays rotated.
+      </p>
+    </section>
+
+    <section>
+      <h2>This website</h2>
+      <p>
+        These pages are static files on GitHub Pages. There are no analytics, no cookies, no
+        trackers and no embedded third-party scripts — view the source, it is a few kilobytes of
+        HTML. GitHub serves them and keeps its own server logs, as above.
+      </p>
+    </section>
+
+    <section>
+      <h2>If this ever changes</h2>
+      <p>
+        Any change to what the app sends or stores would be a change to its source, which is
+        public, and would appear in the changelog with the release that made it. The
+        commitment behind this page is in the repository's own rules: no analytics, no crash
+        reporting, no "anonymous usage statistics".
+      </p>
+      <p>
+        Questions, or something on this page that does not match what you observe:
+        <a href="https://github.com/mshykov/image-shrink/issues">open an issue</a>.
+      </p>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <div class="wrap">
+    <a href="./">Home</a> ·
+    <a href="https://github.com/mshykov/image-shrink">Source</a> ·
+    <a href="https://github.com/mshykov/image-shrink/releases">Releases</a> ·
+    <a href="https://github.com/mshykov/image-shrink/issues">Report a problem</a>
+    <p>Made by UA <span aria-label="Ukraine" role="img">🇺🇦</span> · MIT licensed.</p>
+  </div>
+</footer>
+
+</body>
+</html>
