@@ -239,12 +239,16 @@ with the numbers doing the talking.
   `.contentShape(Rectangle())` is what makes the whole segment live. Any button whose visible
   shape comes from a parent needs it, and small icon buttons need a frame of their own: 22 pt
   around a 15 pt glyph.
-- **A focusable control takes the window's focus on open.** Adding `.focusable()` to the limit
-  picker made the app launch with a focus ring around a pill nobody had touched;
-  `window.makeFirstResponder(nil)` after activation puts it back. Focus rings never appear in
-  an offscreen capture — they need an active app — so the way to see this without a screenshot
-  is to log `window.firstResponder`: `SwiftUI.KeyViewProxy` means a control holds focus,
-  `NSWindow` means nothing does.
+- **`.focusable()` costs more than it looks.** Adding it to the limit picker put a focus ring
+  on screen twice over: once at launch, because SwiftUI gives a focusable view the window's
+  focus when the window opens, and again after every mouse click, around the *first* pill
+  rather than the one pressed. On macOS a click never leaves a keyboard focus ring, so the
+  group is not a focus target at all now; the pills are Buttons, so Tab still walks them under
+  Full Keyboard Access, and ⌘1 … ⌘5 covers the keyboard without any of this.
+  `window.makeFirstResponder(nil)` after activation stays, because it is the right default.
+  Focus rings never appear in an offscreen capture — they need an active app — so the way to
+  see this without a screenshot is to log `window.firstResponder`: `SwiftUI.KeyViewProxy` means
+  a control holds focus, `NSWindow` means nothing does.
 - **Every action has a menu item.** That is how macOS makes something reachable without a
   mouse, and it works whether or not Full Keyboard Access is switched on — unlike Tab, which is
   a system setting. `--cli --menu` prints the whole menu with its key equivalents, because a
