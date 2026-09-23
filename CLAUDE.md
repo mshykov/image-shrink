@@ -239,6 +239,12 @@ with the numbers doing the talking.
   `.contentShape(Rectangle())` is what makes the whole segment live. Any button whose visible
   shape comes from a parent needs it, and small icon buttons need a frame of their own: 22 pt
   around a 15 pt glyph.
+- **A focusable control takes the window's focus on open.** Adding `.focusable()` to the limit
+  picker made the app launch with a focus ring around a pill nobody had touched;
+  `window.makeFirstResponder(nil)` after activation puts it back. Focus rings never appear in
+  an offscreen capture — they need an active app — so the way to see this without a screenshot
+  is to log `window.firstResponder`: `SwiftUI.KeyViewProxy` means a control holds focus,
+  `NSWindow` means nothing does.
 - **Every action has a menu item.** That is how macOS makes something reachable without a
   mouse, and it works whether or not Full Keyboard Access is switched on — unlike Tab, which is
   a system setting. `--cli --menu` prints the whole menu with its key equivalents, because a

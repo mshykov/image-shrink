@@ -65,6 +65,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         NSApp.setActivationPolicy(.regular)
         window?.makeKeyAndOrderFront(nil)
         NSApp.activate(ignoringOtherApps: true)
+        // Nothing should look focused before anyone has pressed a key: the limit picker is
+        // focusable, so SwiftUI hands it the window's focus on open and draws a ring around a
+        // control the user has not touched.
+        window?.makeFirstResponder(nil)
     }
 
     /// A downloaded app has no install script to run, so it puts its own Quick Actions in
