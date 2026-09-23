@@ -11,11 +11,13 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
     private var settingsWindow: NSWindow?
     private var settingsPopover: NSPopover?
     private var menuBar: MenuBarController?
+    private var arrowKeys: Any?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         buildMenu()
         installServicesIfNeeded()
         Updater.start()
+        installArrowKeys()
         let menuBar = MenuBarController(model: model) { [weak self] in self?.showWindow() }
         menuBar.install()
         self.menuBar = menuBar
@@ -69,6 +71,25 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         // focusable, so SwiftUI hands it the window's focus on open and draws a ring around a
         // control the user has not touched.
         window?.makeFirstResponder(nil)
+    }
+
+    /// ← and → walk the size limits without the picker having to hold focus. Focus on a
+    /// control draws a ring, and a ring that appears from a mouse click is exactly what this
+    /// window had to lose twice — so the keys are read at the window instead. A text field
+    /// keeps its own arrows: editing beats navigating.
+    private func installArrowKeys() {
+        arrowKeys = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { [weak self] event in
+            guard let self, let window = self.window, event.window === window else { return event }
+            guard !(window.firstResponder is NSTextView) else { return event }
+            guard event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty else {
+                return event
+            }
+            switch event.keyCode {
+            case 123: self.model.stepLimit(-1); return nil
+            case 124: self.model.stepLimit(1); return nil
+            default: return event
+            }
+        }
     }
 
     /// A downloaded app has no install script to run, so it puts its own Quick Actions in

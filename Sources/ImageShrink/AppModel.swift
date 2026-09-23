@@ -48,6 +48,18 @@ final class AppModel: ObservableObject {
     var targetBytes: Int { Int(targetMB * 1_000_000) }
     func isPreset(_ value: Double) -> Bool { abs(targetMB - value) < 0.001 }
     var isCustomLimit: Bool { !Self.presetLimits.contains(where: isPreset) }
+
+    /// Walks the limits the picker shows, in the order it shows them, ending on Custom.
+    /// `direction` is -1 for left and 1 for right; both stop at the ends rather than wrapping,
+    /// the way a segmented control does.
+    func stepLimit(_ direction: Int) {
+        let stops = Self.presetLimits + [2.5]
+        let current = isCustomLimit ? stops.count - 1
+            : (Self.presetLimits.firstIndex(where: isPreset) ?? 0)
+        let next = min(max(current + direction, 0), stops.count - 1)
+        guard next != current else { return }
+        targetMB = stops[next]
+    }
     var totalBytes: Int { items.reduce(0) { $0 + $1.bytes } }
     var pending: [Item] { items.filter { !$0.isDone } }
     var results: [FileResult] { items.compactMap(\.result) }
