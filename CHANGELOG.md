@@ -1,5 +1,17 @@
 # Changelog
 
+## 1.3.0 — unreleased
+
+- **The whole pill is clickable, not just the digits.** The capsule behind a size limit is drawn
+  by the container, so the button underneath was only the text — clicking a few pixels above or
+  below it did nothing. The hit area is the whole segment now, corners included.
+- **Keyboard.** Every action has a menu item and a shortcut: convert ⌘↩, stop ⌘., the size limit
+  ⌘1 … ⌘5, undo ⇧⌘Z, show in Finder ⇧⌘R, clear ⌘⌫. The limit picker takes focus and answers
+  ← and →. Items grey out when they would do nothing, and the size limit menu shows which one
+  is in force.
+- The remove button on a row and the settings button in the menu bar panel got a 22 pt hit area
+  instead of a 15 pt glyph.
+
 ## 1.2.0 — 2026-09-23
 
 - A build flavour for Setapp: `IMAGESHRINK_FLAVOR=setapp` leaves Sparkle out, drops the feed
