@@ -174,7 +174,7 @@ struct LimitPicker: View {
                     }
                 }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FlatButton())
         .accessibilityLabel("Limit \(label)")
         .accessibilityAddTraits(selected ? [.isSelected] : [])
     }
@@ -438,7 +438,7 @@ struct FileRow: View {
                             .frame(width: 22, height: 22)
                             .contentShape(Rectangle())
                     }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FlatButton())
                     .accessibilityLabel("Remove \(item.url.lastPathComponent)")
                 }
             }
@@ -697,6 +697,18 @@ struct ProgressBadge: View {
 
 // MARK: - Buttons
 
+/// A button that does not change while it is held down.
+///
+/// SwiftUI's plain style dims a label on press, and our own styles used to fade the capsule.
+/// On controls this small a click is over before the eye resolves it, so the feedback reads as
+/// a flicker rather than as an answer — the App Store's own controls do not do it either. What
+/// confirms a click here is the result: the capsule slides, the numbers change.
+struct FlatButton: ButtonStyle {
+    func makeBody(configuration: Configuration) -> some View {
+        configuration.label
+    }
+}
+
 struct PrimaryButton: ButtonStyle {
     func makeBody(configuration: Configuration) -> some View {
         configuration.label
@@ -707,7 +719,6 @@ struct PrimaryButton: ButtonStyle {
             .padding(.horizontal, Theme.wide)
             .padding(.vertical, 7)
             .background(Capsule().fill(Color.accentColor))
-            .opacity(configuration.isPressed ? 0.8 : 1)
     }
 }
 
@@ -723,7 +734,6 @@ struct SecondaryButton: ButtonStyle {
             .padding(.horizontal, compact ? Theme.snug : Theme.wide)
             .padding(.vertical, compact ? 3 : 7)
             .background(Capsule().fill(Color.primary.opacity(0.10)))
-            .opacity(configuration.isPressed ? 0.7 : 1)
     }
 }
 

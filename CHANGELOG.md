@@ -2,6 +2,10 @@
 
 ## 1.3.0 — unreleased
 
+- **Nothing dims while you click it.** Every control used to fade under the pointer — SwiftUI's
+  plain style dims a label on press, and the capsule buttons faded to 70–80 %. A click is over
+  before the eye resolves it, so on controls this small the feedback read as a flicker rather
+  than an answer. What confirms a click is the result: the capsule slides, the numbers change.
 - **The whole pill is clickable, not just the digits.** The capsule behind a size limit is drawn
   by the container, so the button underneath was only the text — clicking a few pixels above or
   below it did nothing. The hit area is the whole segment now, corners included.
