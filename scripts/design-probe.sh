@@ -42,10 +42,12 @@ cp "$WORK/before"/* "$WORK/after/"
 "$WORK/probe-bin" --cli --snapshot "$OUT/before.png" "$WORK/before"/* >/dev/null
 "$WORK/probe-bin" --cli --snapshot "$OUT/after.png" --snapshot-run --target-mb 2 "$WORK/after"/* >/dev/null
 "$WORK/probe-bin" --cli --snapshot "$OUT/popover.png" --snapshot-popover >/dev/null
+"$WORK/probe-bin" --cli --snapshot "$OUT/hud.png" --snapshot-hud >/dev/null
 
 cp -R "$WORK/before" "$WORK/light"
 "$WORK/probe-bin" --cli --snapshot "$OUT/before-light.png" --snapshot-light "$WORK/light"/* >/dev/null
 "$WORK/probe-bin" --cli --snapshot "$OUT/empty-light.png" --snapshot-light >/dev/null
 "$WORK/probe-bin" --cli --snapshot "$OUT/popover-light.png" --snapshot-light --snapshot-popover >/dev/null
+"$WORK/probe-bin" --cli --snapshot "$OUT/hud-light.png" --snapshot-light --snapshot-hud >/dev/null
 
 echo "wrote dark and light renders into $OUT"

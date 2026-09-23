@@ -228,6 +228,10 @@ with the numbers doing the talking.
   the digits on macOS 14+. Every one of them is skipped under Reduce Motion.
 - **No button wraps.** `PrimaryButton` and `SecondaryButton` pin `.lineLimit(1)` and
   `.fixedSize()`; a two-line button label is a defect, not a layout outcome.
+- **A run that fails says what can be done about it.** The HUD's incomplete state carries a
+  **Fix** button that opens the window with exactly the files that failed, where the reason is
+  on the row and the limit and destination are one click away. `--snapshot-hud` renders that
+  state; without it the panel is only reachable by making a real conversion fail.
 - **The window is the exception, not the product.** Conversions started in Finder or by
   dropping on the menu bar icon report through `ConversionHUD` — a floating panel under the
   menu bar that lingers six seconds — and never open a window. Closing the window leaves the

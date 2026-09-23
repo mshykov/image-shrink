@@ -116,9 +116,12 @@ final class RunTotals: @unchecked Sendable {
     private let lock = NSLock()
     private var before = 0
     private var after = 0
+    private var convertedBefore = 0
+    private var convertedAfter = 0
     private var converted = 0
     private var failures = 0
     private var firstFailure: String?
+    private var failedDetails: [FileResult] = []
     private var finished = false
 
     var isComplete: Bool {
@@ -134,11 +137,14 @@ final class RunTotals: @unchecked Sendable {
         after += result.newBytes ?? result.originalBytes
         if case .failed(let reason) = result.status {
             failures += 1
+            failedDetails.append(result)
             if firstFailure == nil {
                 firstFailure = "\(result.source.lastPathComponent): \(reason)"
             }
         } else {
             converted += 1
+            convertedBefore += result.originalBytes
+            convertedAfter += result.newBytes ?? result.originalBytes
         }
     }
 
@@ -146,6 +152,22 @@ final class RunTotals: @unchecked Sendable {
         lock.lock()
         finished = true
         lock.unlock()
+    }
+
+    /// The results that did not convert, so the HUD's Fix button has something to hand over
+    /// and the reopened rows can say why.
+    var failedResults: [FileResult] {
+        lock.lock()
+        defer { lock.unlock() }
+        return failedDetails
+    }
+
+    /// Only what was converted. History says "5 images, 24 MB → 12 MB", and counting the bytes
+    /// of files that failed into that makes the app look like it did more than it did.
+    var convertedTotals: (before: Int, after: Int) {
+        lock.lock()
+        defer { lock.unlock() }
+        return (convertedBefore, convertedAfter)
     }
 
     func snapshot() -> (before: Int, after: Int, converted: Int, failures: Int, firstFailure: String?) {

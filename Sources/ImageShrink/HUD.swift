@@ -18,8 +18,11 @@ final class ConversionHUD {
         @Published var phase: Phase = .converting
         @Published var currentName = ""
         var outputs: [URL] = []
+        /// What could not be converted, reasons included — handed to whoever presses Fix.
+        var failed: [FileResult] = []
         var onStop: (() -> Void)?
         var onShow: (() -> Void)?
+        var onFix: (([FileResult]) -> Void)?
 
         init(total: Int) { self.total = total }
     }
@@ -77,9 +80,19 @@ final class ConversionHUD {
         scheduleDismissal()
     }
 
-    func incomplete(converted: Int, message: String) {
+    func incomplete(converted: Int, message: String, failed: [FileResult] = []) {
+        state.failed = failed
         state.phase = .incomplete(converted: converted, message: message)
         scheduleDismissal(after: lingerSeconds * 2)
+    }
+
+    /// Opening the window with the files that failed is the one useful thing left to offer:
+    /// the rows carry the reason, and the limit and destination are right there to change.
+    func onFix(_ handler: @escaping ([FileResult]) -> Void) {
+        state.onFix = { [weak self] failures in
+            self?.dismiss()
+            handler(failures)
+        }
     }
 
     func dismiss() {
@@ -105,7 +118,7 @@ final class ConversionHUD {
     }
 }
 
-private struct HUDView: View {
+struct HUDView: View {
     @ObservedObject var state: ConversionHUD.State
 
     var body: some View {
@@ -190,7 +203,11 @@ private struct HUDView: View {
             Button("Show") { state.onShow?() }
                 .buttonStyle(SecondaryButton())
         case .incomplete:
-            EmptyView()
+            if state.onFix != nil, !state.failed.isEmpty {
+                Button("Fix") { state.onFix?(state.failed) }
+                    .buttonStyle(SecondaryButton())
+                    .accessibilityHint("Opens the window with the files that did not convert")
+            }
         }
     }
 }
