@@ -233,6 +233,11 @@ with the numbers doing the talking.
   the prototype's number) drives the capsule and the custom field's transition;
   `Theme.numbers` settles estimates, bars and totals, with `.numericTransition()` rolling
   the digits on macOS 14+. Every one of them is skipped under Reduce Motion.
+- **No control changes while it is pressed.** `FlatButton` is the style everything uses:
+  `makeBody` returns the label untouched. SwiftUI's `.plain` dims on press and our capsules
+  used to fade, and at the speed of a real click that reads as blinking — the App Store's
+  controls do not do it either. The confirmation a click happened is the result, not the
+  button. Do not reintroduce an `isPressed` branch; `grep isPressed Sources` should stay empty.
 - **A button's hit area is what it draws, not what it looks like it covers.** The limit pills
   draw their capsule from the container, so each button was a bare `Text` with transparent
   padding — only the digits answered a click, which is exactly what it felt like to use.

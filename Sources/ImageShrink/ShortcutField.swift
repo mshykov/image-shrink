@@ -34,7 +34,7 @@ struct ShortcutField: View {
                 }
             }
         }
-        .buttonStyle(.plain)
+        .buttonStyle(FlatButton())
         .help(shortcut == nil ? "Record a shortcut" : "Change the shortcut")
         .accessibilityLabel(shortcut.map { "Shortcut \($0.display), click to change" }
                             ?? "Record a shortcut")

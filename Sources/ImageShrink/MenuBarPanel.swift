@@ -21,7 +21,7 @@ struct MenuBarPanel: View {
                         .frame(width: 22, height: 22)
                         .contentShape(Rectangle())
                 }
-                .buttonStyle(.plain)
+                .buttonStyle(FlatButton())
                 .foregroundStyle(.secondary)
                 .accessibilityLabel("Settings")
             }
@@ -39,7 +39,7 @@ struct MenuBarPanel: View {
                     .buttonStyle(SecondaryButton())
                     .frame(maxWidth: .infinity)
                 Button("Quit") { NSApp?.terminate(nil) }
-                    .buttonStyle(.plain)
+                    .buttonStyle(FlatButton())
                     .font(Theme.meta)
                     .foregroundStyle(.secondary)
             }
