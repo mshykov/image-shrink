@@ -123,6 +123,27 @@ A copy installed through Homebrew updates the same way: the cask is marked `auto
 That update check is the app's only network traffic. Your images are converted entirely on your
 Mac, and nothing about them is sent anywhere.
 
+## Keyboard
+
+Every action in the window has a menu item, which is also where its shortcut is written down:
+
+| | |
+| --- | --- |
+| **Convert** | ⌘↩ (or ↩ when the window is focused) |
+| **Stop** | ⌘. (or Esc) |
+| **Size limit** | ⌘1 … ⌘5 — 500 KB, 1 MB, 2 MB, 5 MB, Custom |
+| **Undo last batch** | ⇧⌘Z |
+| **Show results in Finder** | ⇧⌘R |
+| **Clear the list** | ⌘⌫ |
+| **Add files** | ⌘O |
+| **Settings** | ⌘, |
+
+The limit picker also takes focus and answers ← and →.
+
+If **Tab** does not move between controls, that is a macOS setting rather than this app:
+System Settings → Keyboard → **Keyboard navigation**. With it off, macOS only lets Tab reach
+text fields and lists, in every app. The shortcuts above work either way.
+
 ## Formats
 
 In: HEIC/HEIF, JPEG, PNG, TIFF, GIF, WebP and camera raw — whatever ImageIO reads on this

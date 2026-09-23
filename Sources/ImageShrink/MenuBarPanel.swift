@@ -18,6 +18,8 @@ struct MenuBarPanel: View {
                 Spacer()
                 Button { openSettings() } label: {
                     Image(systemName: "slider.horizontal.3")
+                        .frame(width: 22, height: 22)
+                        .contentShape(Rectangle())
                 }
                 .buttonStyle(.plain)
                 .foregroundStyle(.secondary)

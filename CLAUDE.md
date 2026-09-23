@@ -233,6 +233,16 @@ with the numbers doing the talking.
   the prototype's number) drives the capsule and the custom field's transition;
   `Theme.numbers` settles estimates, bars and totals, with `.numericTransition()` rolling
   the digits on macOS 14+. Every one of them is skipped under Reduce Motion.
+- **A button's hit area is what it draws, not what it looks like it covers.** The limit pills
+  draw their capsule from the container, so each button was a bare `Text` with transparent
+  padding — only the digits answered a click, which is exactly what it felt like to use.
+  `.contentShape(Rectangle())` is what makes the whole segment live. Any button whose visible
+  shape comes from a parent needs it, and small icon buttons need a frame of their own: 22 pt
+  around a 15 pt glyph.
+- **Every action has a menu item.** That is how macOS makes something reachable without a
+  mouse, and it works whether or not Full Keyboard Access is switched on — unlike Tab, which is
+  a system setting. `--cli --menu` prints the whole menu with its key equivalents, because a
+  menu is the one part of the app no snapshot shows.
 - **No button wraps.** `PrimaryButton` and `SecondaryButton` pin `.lineLimit(1)` and
   `.fixedSize()`; a two-line button label is a defect, not a layout outcome.
 - **A run that fails says what can be done about it.** The HUD's incomplete state carries a

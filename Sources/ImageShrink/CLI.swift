@@ -21,6 +21,7 @@ enum CLI {
       --preset <id>      use a named preset (see --list-presets)
       --list-presets     print the presets, tab separated, for the installer
       --distribution     print the channel this build was made for, and how it updates
+      --menu             print the menu bar, with the keys each item answers to
       --install-services   install the Finder Quick Actions and exit
       --uninstall-services remove them and exit
       --saved            start from the settings the app window last used
@@ -115,6 +116,13 @@ enum CLI {
                 Services.restartFinder()
                 print("removed the Quick Actions")
                 return 0
+            case "--menu":
+                return MainActor.assumeIsolated {
+                    _ = NSApplication.shared
+                    AppDelegate().buildMenu()
+                    printMenu(NSApp.mainMenu)
+                    return 0
+                }
             case "--distribution":
                 let channel = Bundle.main
                     .object(forInfoDictionaryKey: "ISDistributionChannel") as? String ?? "direct"
@@ -367,6 +375,37 @@ enum CLI {
         let deadline = Date().addingTimeInterval(limit)
         while condition() && Date() < deadline {
             RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.05))
+        }
+    }
+
+    /// The menu, with the keys each item answers to — the one part of the app a snapshot
+    /// cannot show and a person cannot check without a mouse.
+    @MainActor
+    private static func printMenu(_ menu: NSMenu?, indent: String = "") {
+        guard let menu else { return }
+        for item in menu.items {
+            if item.isSeparatorItem {
+                print("\(indent)—")
+                continue
+            }
+            var keys = ""
+            if !item.keyEquivalent.isEmpty {
+                let modifiers = item.keyEquivalentModifierMask
+                if modifiers.contains(.control) { keys += "\u{2303}" }
+                if modifiers.contains(.option) { keys += "\u{2325}" }
+                if modifiers.contains(.shift) { keys += "\u{21E7}" }
+                if modifiers.contains(.command) { keys += "\u{2318}" }
+                switch item.keyEquivalent {
+                case "\r": keys += "\u{21A9}"
+                case "\u{8}": keys += "\u{232B}"
+                default: keys += item.keyEquivalent.uppercased()
+                }
+            }
+            let submenuTitle = item.submenu?.title
+            let title = (submenuTitle?.isEmpty == false ? submenuTitle : nil)
+                ?? (item.title == "NSMenuItem" ? "Image Shrink" : item.title)
+            print("\(indent)\(title)\(keys.isEmpty ? "" : "  \(keys)")")
+            printMenu(item.submenu, indent: indent + "    ")
         }
     }
 

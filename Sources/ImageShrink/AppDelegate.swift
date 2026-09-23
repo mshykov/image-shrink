@@ -109,6 +109,61 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         Services.restartFinder()
     }
 
+    /// The limits the menu offers, in the order the pills show them.
+    static let limitChoices: [(title: String, megabytes: Double)] = [
+        ("500 KB", 0.5), ("1 MB", 1), ("2 MB", 2), ("5 MB", 5), ("Custom", 2.5),
+    ]
+
+    @objc func convertQueue(_ sender: Any?) {
+        showWindow()
+        model.convert()
+    }
+
+    @objc func stopConverting(_ sender: Any?) { model.cancel() }
+
+    @objc func clearQueue(_ sender: Any?) { model.clear() }
+
+    @objc func undoBatch(_ sender: Any?) { model.undo() }
+
+    @objc func revealResults(_ sender: Any?) {
+        let outputs = model.results.compactMap(\.output)
+        guard !outputs.isEmpty else { return }
+        NSWorkspace.shared.activateFileViewerSelecting(outputs)
+    }
+
+    @objc func setLimit(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem,
+              Self.limitChoices.indices.contains(item.tag) else { return }
+        showWindow()
+        model.targetMB = Self.limitChoices[item.tag].megabytes
+    }
+
+    /// Menu items that would do nothing are greyed out rather than silently ignored, and the
+    /// size limit shows which one is in force.
+    func validateMenuItem(_ item: NSMenuItem) -> Bool {
+        switch item.action {
+        case #selector(convertQueue(_:)):
+            return !model.isRunning && !model.pending.isEmpty
+        case #selector(stopConverting(_:)):
+            return model.isRunning
+        case #selector(clearQueue(_:)):
+            return !model.isRunning && !model.items.isEmpty
+        case #selector(undoBatch(_:)):
+            return model.canUndo
+        case #selector(revealResults(_:)):
+            return model.results.contains { $0.output != nil }
+        case #selector(setLimit(_:)):
+            guard Self.limitChoices.indices.contains(item.tag) else { return true }
+            let choice = Self.limitChoices[item.tag]
+            let isCustom = choice.title == "Custom"
+            item.state = (isCustom ? model.isCustomLimit : model.isPreset(choice.megabytes))
+                ? .on : .off
+            return !model.isRunning
+        default:
+            return true
+        }
+    }
+
     @objc func checkForUpdates(_ sender: Any?) {
         Updater.checkForUpdates()
     }
@@ -191,11 +246,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         return controller
     }
 
-    private func buildMenu() {
+    /// Not private so `--menu` can print it: a menu is part of the app that no snapshot shows.
+    func buildMenu() {
         let main = NSMenu()
 
         let appItem = NSMenuItem()
-        let appMenu = NSMenu()
+        let appMenu = NSMenu(title: "Image Shrink")
         appMenu.addItem(withTitle: "About Image Shrink", action: #selector(NSApplication.orderFrontStandardAboutPanel(_:)), keyEquivalent: "")
         // A Setapp build has no update item at all: Setapp does that, and an item that opens a
         // releases page would send people out of the thing that installed the app.
@@ -231,6 +287,33 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSWindowDelegate {
         main.addItem(fileItem)
 
         // Without an Edit menu the text fields lose cut/copy/paste and ⌘A.
+        let convertItem = NSMenuItem()
+        let convertMenu = NSMenu(title: "Convert")
+        convertMenu.addItem(withTitle: "Convert", action: #selector(convertQueue(_:)), keyEquivalent: "\r")
+        let stop = convertMenu.addItem(withTitle: "Stop", action: #selector(stopConverting(_:)), keyEquivalent: ".")
+        stop.keyEquivalentModifierMask = [.command]
+        convertMenu.addItem(.separator())
+        let limitsItem = NSMenuItem(title: "Size Limit", action: nil, keyEquivalent: "")
+        let limitsMenu = NSMenu(title: "Size Limit")
+        for (index, choice) in Self.limitChoices.enumerated() {
+            let item = limitsMenu.addItem(withTitle: choice.title, action: #selector(setLimit(_:)),
+                                          keyEquivalent: "\(index + 1)")
+            item.tag = index
+            item.target = self
+        }
+        limitsItem.submenu = limitsMenu
+        convertMenu.addItem(limitsItem)
+        convertMenu.addItem(.separator())
+        let undo = convertMenu.addItem(withTitle: "Undo Last Batch", action: #selector(undoBatch(_:)), keyEquivalent: "z")
+        undo.keyEquivalentModifierMask = [.command, .shift]
+        let reveal = convertMenu.addItem(withTitle: "Show Results in Finder", action: #selector(revealResults(_:)), keyEquivalent: "r")
+        reveal.keyEquivalentModifierMask = [.command, .shift]
+        let clear = convertMenu.addItem(withTitle: "Clear the List", action: #selector(clearQueue(_:)), keyEquivalent: "\u{8}")
+        clear.keyEquivalentModifierMask = [.command]
+        for item in convertMenu.items { item.target = item.target ?? self }
+        convertItem.submenu = convertMenu
+        main.addItem(convertItem)
+
         let editItem = NSMenuItem()
         let editMenu = NSMenu(title: "Edit")
         editMenu.addItem(withTitle: "Undo", action: Selector(("undo:")), keyEquivalent: "z")
