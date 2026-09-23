@@ -18,11 +18,11 @@ final class ConversionHUD {
         @Published var phase: Phase = .converting
         @Published var currentName = ""
         var outputs: [URL] = []
-        /// What could not be converted — handed to the window when Fix is pressed.
-        var failed: [URL] = []
+        /// What could not be converted, reasons included — handed to whoever presses Fix.
+        var failed: [FileResult] = []
         var onStop: (() -> Void)?
         var onShow: (() -> Void)?
-        var onFix: (([URL]) -> Void)?
+        var onFix: (([FileResult]) -> Void)?
 
         init(total: Int) { self.total = total }
     }
@@ -80,7 +80,7 @@ final class ConversionHUD {
         scheduleDismissal()
     }
 
-    func incomplete(converted: Int, message: String, failed: [URL] = []) {
+    func incomplete(converted: Int, message: String, failed: [FileResult] = []) {
         state.failed = failed
         state.phase = .incomplete(converted: converted, message: message)
         scheduleDismissal(after: lingerSeconds * 2)
@@ -88,10 +88,10 @@ final class ConversionHUD {
 
     /// Opening the window with the files that failed is the one useful thing left to offer:
     /// the rows carry the reason, and the limit and destination are right there to change.
-    func onFix(_ handler: @escaping ([URL]) -> Void) {
-        state.onFix = { [weak self] urls in
+    func onFix(_ handler: @escaping ([FileResult]) -> Void) {
+        state.onFix = { [weak self] failures in
             self?.dismiss()
-            handler(urls)
+            handler(failures)
         }
     }
 

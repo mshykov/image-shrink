@@ -122,6 +122,22 @@ final class AppModel: ObservableObject {
         estimateAll()
     }
 
+    /// Reopens files that failed, each carrying the reason it failed, so a row says
+    /// "could not be written" rather than sitting there looking ordinary. Anything already
+    /// queued is left alone: the point is to add work, not to discard what someone staged.
+    func add(failures: [FileResult]) {
+        guard !failures.isEmpty else { return }
+        let known = Set(items.map(\.url.standardizedFileURL))
+        items += failures
+            .filter { !known.contains($0.source.standardizedFileURL) }
+            .map { failure in
+                var item = Item(url: failure.source, bytes: failure.originalBytes)
+                item.result = failure
+                return item
+            }
+        Log.write("reopened \(failures.count) failed file(s)")
+    }
+
     func remove(_ item: Item) {
         items.removeAll { $0.id == item.id }
     }

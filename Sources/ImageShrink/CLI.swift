@@ -289,10 +289,18 @@ enum CLI {
 
         let cancellation = Cancellation()
         let hud = ConversionHUD(total: files.count, onStop: { cancellation.cancel() })
-        hud.onFix { urls in
+        hud.onFix { failures in
             let configuration = NSWorkspace.OpenConfiguration()
             configuration.activates = true
-            NSWorkspace.shared.open(urls, withApplicationAt: Bundle.main.bundleURL,
+            // This process is the same bundle, with no delegate and about to exit — an open
+            // routed to it goes nowhere. Start a real instance unless one is already running.
+            let mine = ProcessInfo.processInfo.processIdentifier
+            let others = NSRunningApplication
+                .runningApplications(withBundleIdentifier: Bundle.main.bundleIdentifier ?? "")
+                .filter { $0.processIdentifier != mine }
+            configuration.createsNewApplicationInstance = others.isEmpty
+            NSWorkspace.shared.open(failures.map(\.source),
+                                    withApplicationAt: Bundle.main.bundleURL,
                                     configuration: configuration)
         }
         hud.show()
@@ -316,12 +324,14 @@ enum CLI {
         pump(while: { !box.isComplete }, limit: 600)
 
         let totals = box.snapshot()
-        History.add(count: totals.converted, before: totals.before, after: totals.after)
+        let convertedTotals = box.convertedTotals
+        History.add(count: totals.converted,
+                    before: convertedTotals.before, after: convertedTotals.after)
         Feedback.play(success: totals.failures == 0)
         if totals.failures > 0 {
             hud.incomplete(converted: totals.converted,
                            message: totals.firstFailure ?? "Some files could not be converted",
-                           failed: box.failedSources)
+                           failed: box.failedResults)
         } else {
             hud.finish(before: totals.before, after: totals.after)
         }
@@ -365,7 +375,10 @@ enum CLI {
             // place the Fix button appears.
             let state = ConversionHUD.State(total: 5)
             state.done = 3
-            state.failed = files.isEmpty ? [URL(fileURLWithPath: "/tmp/IMG_7301.HEIC")] : files
+            let sample = files.first ?? URL(fileURLWithPath: "/tmp/IMG_7301.HEIC")
+            var failure = FileResult(source: sample, originalBytes: 2_100_000, status: .converted)
+            failure.status = .failed("could not read image")
+            state.failed = [failure]
             state.onFix = { _ in }
             state.phase = .incomplete(converted: 3,
                                       message: "IMG_7301.HEIC: could not read image")

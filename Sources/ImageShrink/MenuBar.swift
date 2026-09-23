@@ -58,9 +58,9 @@ final class MenuBarController: NSObject {
         guard !images.isEmpty else { return }
         let settings = model.settings()
         let hud = ConversionHUD(total: images.count)
-        hud.onFix { [weak self] urls in
+        hud.onFix { [weak self] failures in
             guard let self else { return }
-            self.model.add(urls: urls)
+            self.model.add(failures: failures)
             self.onOpenWindow()
         }
         hud.show()
@@ -80,13 +80,15 @@ final class MenuBarController: NSObject {
             }
 
             let totals = box.snapshot()
-            let failed = box.failedSources
+            let converted = box.convertedTotals
+            let failedResults = box.failedResults
             await MainActor.run {
-                History.add(count: totals.converted, before: totals.before, after: totals.after)
+                History.add(count: totals.converted,
+                            before: converted.before, after: converted.after)
                 if totals.failures > 0 {
                     hud.incomplete(converted: totals.converted,
                                    message: totals.firstFailure ?? "Some files could not be converted",
-                                   failed: failed)
+                                   failed: failedResults)
                 } else {
                     hud.finish(before: totals.before, after: totals.after)
                 }
