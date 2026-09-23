@@ -302,6 +302,12 @@ plain name and the names changed from run to run.
   "anonymous usage statistics". The update feed is signed with an EdDSA key whose private half
   is in the release Mac's keychain; `SUPublicEDKey` in `Resources/Info.plist` is its public half,
   and losing the private key means no existing installation can ever be updated again.
+- **There are two build flavours, and only one of them updates itself.**
+  `IMAGESHRINK_FLAVOR=setapp ./scripts/build.sh` leaves Sparkle out, strips `SUFeedURL` and
+  `SUPublicEDKey` from the bundle, and sets `ISDistributionChannel`; `Updater.isManagedExternally`
+  is the single place the app asks. `--cli --distribution` prints what a build is, which is how
+  a release checklist can tell them apart without launching anything. See
+  [docs/setapp.md](docs/setapp.md).
 - **Signing picks the personal Developer ID**, never the work one: `build.sh` matches
   "Developer ID Application" (Maksym Shykov, 64HRGLZCS4) and falls back to ad-hoc when there
   is none. `IMAGESHRINK_SIGN_IDENTITY` overrides it. A release goes through `release.sh`,

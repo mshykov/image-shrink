@@ -175,10 +175,11 @@ we already satisfy: the developer's own published URL, and passing Gatekeeper.
 would have to be rebuilt as an app extension, and the App Store review of a
 "convert to JPEG" utility is not worth that rewrite.
 
-**[Setapp](https://setapp.com/developers)** — a real revenue channel with no marketing effort,
-worth doing once v1 is out. Their requirements: Developer ID signed, notarised, universal
-binary, tested on the latest macOS, the Setapp framework integrated, your own licensing and
-update frameworks disabled, and no version number in the app name or bundle id.
+**[Setapp](https://setapp.com/developers)** — a real revenue channel with no marketing effort.
+Everything on their published requirement list except the framework itself already holds, and
+there is a build flavour that switches this app's own updater off:
+`IMAGESHRINK_FLAVOR=setapp ./scripts/build.sh`. The checklist, and the questions that need an
+answer from inside Setapp rather than from their docs, are in [setapp.md](setapp.md).
 
 **Directories:** AlternativeTo (list it against ImageOptim, Squash, TinyPNG — people search
 that way), MacUpdate, and the small launch boards (Uneed, DevHunt, Microlaunch, Tiny Launch).
