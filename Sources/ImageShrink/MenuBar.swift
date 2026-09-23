@@ -54,7 +54,7 @@ final class MenuBarController: NSObject {
 
     /// Dropped images never open a window — same promise as the Finder shortcut.
     private func convertDropped(_ urls: [URL]) {
-        let images = urls.filter(AppModel.isImage)
+        let images = AppModel.images(in: urls)
         guard !images.isEmpty else { return }
         let settings = model.settings()
         let hud = ConversionHUD(total: images.count)

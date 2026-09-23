@@ -2,6 +2,10 @@
 
 ## 1.2.0 — unreleased
 
+- **A folder works wherever a file does.** Drop one on the window or the menu bar icon, pick it
+  in Add Files, or pass it on the command line: every image inside is taken, subfolders
+  included. Hidden files and the insides of packages — a `.photoslibrary`, an `.app` — are left
+  where they are. Dropping a folder used to do nothing at all.
 - **A failed conversion now offers a way out.** The panel that reports a windowless run has a
   **Fix** button: it opens the window with the files that did not convert, where each row says
   why and the limit and destination are right there.

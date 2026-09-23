@@ -181,6 +181,17 @@ enum CLI {
             return 2
         }
 
+        // A folder on the command line means the images in it, the same as dropping one on the
+        // window. Snapshot and motion modes run before this on purpose: they take the paths as
+        // given, and render whether or not the files exist.
+        let given = files
+        files = AppModel.images(in: files)
+        if files.isEmpty {
+            let what = given.count == 1 ? given[0].lastPathComponent : "what was given"
+            FileHandle.standardError.write(Data("no images in \(what)\n".utf8))
+            return 2
+        }
+
         if selftest {
             return MainActor.assumeIsolated {
                 selfTest(files: files, settings: settings, cancelAfter: cancelAfter)

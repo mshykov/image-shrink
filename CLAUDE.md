@@ -84,6 +84,13 @@ from a Finder Quick Action. User-facing docs live in [README.md](README.md).
   time. Do not move that generation after signing, and do not put an absolute path in the
   template. `scripts/install.sh` deliberately goes through the same code (`--install-services`)
   rather than copying the workflows itself, so the path a stranger takes is the tested one.
+- **A folder is expanded, a named file is not filtered.** `AppModel.images(in:)` is the one
+  place that turns what someone handed over into a list of images: folders are walked
+  recursively, skipping hidden entries and package contents, and the result is sorted so a
+  batch names its outputs the same way twice. A file someone named explicitly is taken unless
+  its extension says it is positively something else — filtering those by extension deleted the
+  extensionless-JPEG case, which the smoke test caught. A hidden folder chosen on purpose is
+  still converted; the skip is about what is found inside a folder, not about what was asked for.
 - **Concurrency and output names.** Workers run in parallel, so checking the disk for a free
   name is not enough — two files converted at once both see it free. Every output name must
   come from `NameReserver`. This was a real bug: two sources collapsed into one file.

@@ -122,6 +122,26 @@ cp "$WORK/odd/panorama.jpg" "$WORK/extensionless"
 "$BIN" --cli --target-mb 1 --dest "$WORK/noext" "$WORK/extensionless" >/dev/null
 [[ -f "$WORK/noext/extensionless-1MB.jpg" ]] || fail "a file with no extension did not convert"
 
+echo "› a folder means the images inside it"
+mkdir -p "$WORK/album/2026-01" "$WORK/album/.hidden"
+cp "$WORK/photo.jpg" "$WORK/album/one.jpg"
+cp "$WORK/photo.heic" "$WORK/album/2026-01/two.heic"
+cp "$WORK/photo.jpg" "$WORK/album/.hidden/skipme.jpg"
+printf 'not an image' > "$WORK/album/notes.txt"
+"$BIN" --cli --target-mb 1 --dest "$WORK/folder" "$WORK/album" >/dev/null
+[[ -f "$WORK/folder/one-1MB.jpg" ]] || fail "a folder did not yield the image at its top level"
+[[ -f "$WORK/folder/two-1MB.jpg" ]] || fail "a folder did not recurse into its subfolder"
+count=$(ls "$WORK/folder" | wc -l | tr -d ' ')
+[[ "$count" = "2" ]] || fail "a folder produced $count files — hidden or non-image entries slipped in"
+# Pointed straight at a folder with nothing in it but a text file, it says so rather than
+# reporting a successful run over zero files. (A hidden folder named explicitly is different:
+# the skip applies to what is found inside a folder, not to one someone chose.)
+mkdir -p "$WORK/album/paperwork"
+printf 'not an image either' > "$WORK/album/paperwork/readme.txt"
+if "$BIN" --cli --target-mb 1 --dest "$WORK/empty" "$WORK/album/paperwork" >/dev/null 2>&1; then
+    fail "a folder with nothing convertible in it reported success"
+fi
+
 echo "› a destination it cannot write to is an error, not a crash"
 mkdir -p "$WORK/readonly"
 chmod 555 "$WORK/readonly"

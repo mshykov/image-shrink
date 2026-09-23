@@ -527,7 +527,7 @@ struct EmptyState: View {
                             .font(.system(size: 34, weight: .light))
                             .foregroundStyle(.secondary)
                     }
-                Text("Drop images here").font(Theme.display)
+                Text("Drop images or a folder here").font(Theme.display)
                 Text("HEIC, JPEG and PNG come out as JPEG under \(Format.bytes(model.targetBytes)), "
                      + (model.maxDimension > 0
                         ? "at most \(model.maxDimension) px on the longest side."
@@ -710,7 +710,7 @@ struct SecondaryButton: ButtonStyle {
 func openPanel(_ model: AppModel) {
     let panel = NSOpenPanel()
     panel.allowsMultipleSelection = true
-    panel.canChooseDirectories = false
+    panel.canChooseDirectories = true
     panel.allowedContentTypes = [.image]
     if panel.runModal() == .OK { model.add(urls: panel.urls) }
 }
