@@ -11,10 +11,12 @@
   is in force.
 - The remove button on a row and the settings button in the menu bar panel got a 22 pt hit area
   instead of a 15 pt glyph.
-- **Nothing is highlighted before you touch it.** Making the limit picker focusable had a side
-  effect: SwiftUI handed it the window's focus on open, so the app launched with a ring around a
-  control nobody had clicked. The window opens with no focused control again, and when the ring
-  does appear — after Tab — it follows the pill instead of boxing it in.
+- **Nothing is highlighted before you touch it, and a click leaves nothing behind.** Making the
+  limit picker focusable brought a focus ring with it twice over: on launch, and then after any
+  click, around the first pill rather than the one pressed. Focus belongs to the keyboard, not
+  the mouse, so the group is no longer a focus target — Tab still reaches each pill, and ⌘1 … ⌘5
+  does the same job without touching the window at all. The ring, when it does appear, follows
+  the pill instead of boxing it in.
 
 ## 1.2.0 — 2026-09-23
 

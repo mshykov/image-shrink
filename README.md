@@ -138,7 +138,7 @@ Every action in the window has a menu item, which is also where its shortcut is 
 | **Add files** | ⌘O |
 | **Settings** | ⌘, |
 
-The limit picker also takes focus and answers ← and →.
+Tab walks the controls when macOS lets it — see below.
 
 If **Tab** does not move between controls, that is a macOS setting rather than this app:
 System Settings → Keyboard → **Keyboard navigation**. With it off, macOS only lets Tab reach

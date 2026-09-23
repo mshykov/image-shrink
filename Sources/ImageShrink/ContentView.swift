@@ -129,10 +129,6 @@ struct LimitPicker: View {
             button("Custom", value: -1, selected: model.isCustomLimit)
         }
         .padding(3)
-        .focusable()
-        .onMoveCommand { direction in move(direction) }
-        .accessibilityLabel("Size limit")
-        .accessibilityValue(model.isCustomLimit ? "Custom" : Format.bytes(model.targetBytes))
         .coordinateSpace(name: Self.space)
         .background(alignment: .topLeading) {
             if let frame = frames[selectedValue] {
@@ -146,20 +142,6 @@ struct LimitPicker: View {
         .background(Capsule().fill(Color.primary.opacity(0.07)))
         .fixedSize()
         .onPreferenceChange(PillFrames.self) { frames = $0 }
-    }
-
-    /// Left and right walk the pills, the way a segmented control does.
-    private func move(_ direction: MoveCommandDirection) {
-        let values = choices.map(\.value) + [-1]
-        let current = values.firstIndex(of: selectedValue) ?? 0
-        let next: Int
-        switch direction {
-        case .left: next = max(0, current - 1)
-        case .right: next = min(values.count - 1, current + 1)
-        default: return
-        }
-        guard next != current else { return }
-        apply(values[next])
     }
 
     private func apply(_ value: Double) {
