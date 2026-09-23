@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.2.0 — unreleased
+## 1.2.0 — 2026-09-23
 
 - A build flavour for Setapp: `IMAGESHRINK_FLAVOR=setapp` leaves Sparkle out, drops the feed
   keys from the bundle and hides the update menu item, because that channel installs and
