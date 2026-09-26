@@ -4,9 +4,10 @@ name: ci
 # No path filter. `build` is a required check, and a pull request that touches only docs never
 # fires a filtered workflow — so the check stays pending and the pull request can never merge.
 # Two minutes on every pull request is the cheaper half of that trade.
+# PRs only: main requires this check with strict status checks, so a merged
+# commit is the tree the PR run already passed — re-running it on the push to
+# main only spent Actions minutes.
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_dispatch:
 
@@ -23,6 +24,7 @@ concurrency:
 jobs:
   build:
     runs-on: macos-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
